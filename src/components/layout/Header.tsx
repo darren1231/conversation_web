@@ -2,9 +2,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { LogoutButton } from "@/components/layout/LogoutButton";
 import { SearchBar } from "@/components/search/SearchBar";
-import { Avatar } from "@/components/ui/Avatar";
+import { UserMenu } from "@/components/layout/UserMenu";
 
 export async function Header() {
   const supabase = await createClient();
@@ -13,15 +12,13 @@ export async function Header() {
   } = await supabase.auth.getUser();
 
   let displayName = user?.email ?? "";
-  let avatarUrl: string | null = null;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("display_name, avatar_url")
+      .select("display_name")
       .eq("id", user.id)
       .maybeSingle();
     displayName = profile?.display_name || user.email || "使用者";
-    avatarUrl = profile?.avatar_url ?? null;
   }
 
   return (
@@ -58,11 +55,7 @@ export async function Header() {
           <ThemeToggle />
           {user && (
             <div className="hidden items-center gap-2 sm:flex">
-              <Avatar src={avatarUrl} name={displayName} size={32} />
-              <span className="max-w-[8rem] truncate text-sm text-zinc-700 dark:text-zinc-200">
-                {displayName}
-              </span>
-              <LogoutButton />
+              <UserMenu displayName={displayName} />
             </div>
           )}
         </div>

@@ -13,21 +13,30 @@ cp .env.example .env.local
 ```
 
 ```env
+# Supabase 配置（必須）
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
+
+# API Key 加密密鑰（推薦設定以提高安全性）
+# 用於加密儲存用戶的 AI API 密鑰（OpenAI、Claude 等）
+# 如果未設定，API Key 將以明文存儲（開發環境可用，生產環境不建議）
+API_KEY_ENCRYPTION_KEY=your-secure-random-32-byte-key
 ```
 
-> 兩者皆為公開金鑰（anon/publishable key），可安全暴露在前端；所有資料存取權限由 Row Level Security（RLS）把關。本專案未使用 service role key。
+> - `NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 皆為公開金鑰（anon/publishable key），可安全暴露在前端；所有資料存取權限由 Row Level Security（RLS）把關。本專案未使用 service role key。
+> - `API_KEY_ENCRYPTION_KEY` 用於加密存儲用戶的 AI API 密鑰。建議使用 32 bytes 的隨機密鑰（例如：`openssl rand -hex 32`）。
 
 ## 2. Supabase 專案設定
 
 ### 2.1 執行資料庫 Migration
 
-在 Supabase Dashboard 的 SQL Editor 中，依序執行 `supabase/migrations/` 下的三個檔案（或使用 Supabase CLI `supabase db push`）：
+在 Supabase Dashboard 的 SQL Editor 中，依序執行 `supabase/migrations/` 下的所有檔案（或使用 Supabase CLI `supabase db push`）：
 
 1. `0001_schema.sql` — 建立資料表、索引、`updated_at` 自動更新 trigger，以及新使用者自動建立 `profiles` 的 trigger。
 2. `0002_rls.sql` — 為所有資料表啟用並設定 Row Level Security policies。
 3. `0003_storage.sql` — 建立私人 Storage bucket `attachments`，並設定其 RLS policies。
+4. `0004_api_credentials.sql` — 建立 `api_credentials` 和 `api_usage_logs` 表，用於存儲用戶的 AI API 配置和使用記錄。
+5. `0005_api_credentials_rls.sql` — 為 API 相關表設定 RLS 策略。
 
 ```bash
 # 使用 Supabase CLI（已 supabase link 專案後）

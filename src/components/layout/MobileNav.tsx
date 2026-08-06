@@ -6,6 +6,7 @@ const items = [
   { href: "/contacts", label: "人物" },
   { href: "/conversations", label: "對話" },
   { href: "/search", label: "搜尋" },
+  { href: "/settings/api-keys", label: "設置" },
 ];
 
 export function MobileNav() {
