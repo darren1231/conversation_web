@@ -7,11 +7,13 @@ CREATE TABLE api_credentials (
   api_key TEXT NOT NULL, -- 明文存储
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-
-  -- 确保每个用户只有一个 provider 配置
-  UNIQUE(user_id, provider) WHERE is_active = true
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
+
+-- 确保每个用户只有一个 provider 配置（仅限活跃的）
+CREATE UNIQUE INDEX idx_api_credentials_active
+ON api_credentials(user_id, provider)
+WHERE is_active = true;
 
 -- API Usage Logs table (记录成本)
 CREATE TABLE api_usage_logs (
