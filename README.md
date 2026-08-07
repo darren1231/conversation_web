@@ -13,18 +13,12 @@ cp .env.example .env.local
 ```
 
 ```env
-# Supabase 配置（必須）
+# Supabase 配置
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
-
-# API Key 加密密鑰（推薦設定以提高安全性）
-# 用於加密儲存用戶的 AI API 密鑰（OpenAI、Claude 等）
-# 如果未設定，API Key 將以明文存儲（開發環境可用，生產環境不建議）
-API_KEY_ENCRYPTION_KEY=your-secure-random-32-byte-key
 ```
 
-> - `NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 皆為公開金鑰（anon/publishable key），可安全暴露在前端；所有資料存取權限由 Row Level Security（RLS）把關。本專案未使用 service role key。
-> - `API_KEY_ENCRYPTION_KEY` 用於加密存儲用戶的 AI API 密鑰。建議使用 32 bytes 的隨機密鑰（例如：`openssl rand -hex 32`）。
+> `NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 皆為公開金鑰（anon/publishable key），可安全暴露在前端；所有資料存取權限由 Row Level Security（RLS）把關。本專案未使用 service role key。
 
 ## 2. Supabase 專案設定
 

@@ -4,14 +4,12 @@ CREATE TABLE api_credentials (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   provider TEXT NOT NULL, -- "openai", "claude", etc.
   model TEXT NOT NULL,   -- "gpt-4o", "claude-3-5-sonnet", etc.
-  api_key_encrypted TEXT NOT NULL, -- 加密存储
+  api_key TEXT NOT NULL, -- 明文存储
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
 
-  -- 确保每个用户的 provider+model 组合唯一
-  UNIQUE(user_id, provider, model),
-  -- 同一用户最多一个活跃配置（可选，如果需要自动切换）
+  -- 确保每个用户只有一个 provider 配置
   UNIQUE(user_id, provider) WHERE is_active = true
 );
 

@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { encryptApiKey, decryptApiKey } from "@/lib/crypto";
 
 interface CreateCredentialInput {
   provider: string;
@@ -30,9 +29,7 @@ export async function createOrUpdateCredential(input: CreateCredentialInput) {
     throw new Error("Unauthorized");
   }
 
-  const encryptedKey = encryptApiKey(input.apiKey);
-
-  // 先尝试删除同 provider 的旧凭证（保持唯一性）
+  // 先尝试删除同 provider 的旧凭证
   await supabase
     .from("api_credentials")
     .delete()
@@ -45,7 +42,7 @@ export async function createOrUpdateCredential(input: CreateCredentialInput) {
       user_id: user.id,
       provider: input.provider,
       model: input.model,
-      api_key_encrypted: encryptedKey,
+      api_key: input.apiKey,
       is_active: true,
     })
     .select()
@@ -109,7 +106,7 @@ export async function getActiveCredential(provider: string) {
   return data || null;
 }
 
-// 获取凭证及其解密后的 API Key（仅在服务器端）
+// 获取凭证及其 API Key（仅在服务器端）
 export async function getCredentialWithKey(
   credentialId: string
 ): Promise<{ credential: APICredential & { api_key: string } }> {
@@ -133,12 +130,10 @@ export async function getCredentialWithKey(
     throw new Error(`Credential not found: ${error.message}`);
   }
 
-  const decryptedKey = decryptApiKey(data.api_key_encrypted);
-
   return {
     credential: {
       ...data,
-      api_key: decryptedKey,
+      api_key: data.api_key,
     },
   };
 }

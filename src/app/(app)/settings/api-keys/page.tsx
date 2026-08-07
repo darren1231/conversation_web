@@ -28,10 +28,10 @@ export default function APIKeysPage() {
 
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
             <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
-              🔒 隐私说明
+              ℹ️ 说明
             </h3>
             <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-              <li>✓ API Key 会被加密存储在数据库中</li>
+              <li>✓ API Key 存储在数据库中</li>
               <li>✓ 仅在服务器端调用 API，不会暴露到客户端</li>
               <li>✓ 你可以随时删除或更新配置</li>
             </ul>

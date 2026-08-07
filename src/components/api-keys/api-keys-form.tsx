@@ -145,7 +145,7 @@ export default function APIKeysForm({ onSuccess }: APIKeysFormProps) {
           className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          你的 API Key 将被加密存储，仅在服务器端使用
+          你的 API Key 将存储在数据库中，仅在服务器端使用
         </p>
       </div>
 
