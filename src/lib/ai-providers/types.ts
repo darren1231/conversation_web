@@ -31,7 +31,7 @@ export interface APICredentialConfig {
 export type SupportedProvider = "openai" | "claude" | "gemini";
 
 export const PROVIDER_MODELS: Record<SupportedProvider, string[]> = {
-  openai: ["gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
   claude: ["claude-3-5-sonnet", "claude-3-opus", "claude-3-sonnet"],
   gemini: ["gemini-2.0-flash", "gemini-1.5-pro"],
 };

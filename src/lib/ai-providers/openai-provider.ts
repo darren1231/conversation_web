@@ -126,12 +126,16 @@ export class OpenAIProvider implements AIProvider {
   }
 
   getPricing(): ProviderPricing {
-    // OpenAI pricing as of 2025-02
+    // OpenAI pricing as of 2025-08
     // Reference: https://openai.com/pricing
     const pricingMap: Record<string, ProviderPricing> = {
       "gpt-4o": {
         inputCostPer1M: 2.5, // $2.50 per 1M input tokens
         outputCostPer1M: 10.0, // $10.00 per 1M output tokens
+      },
+      "gpt-4o-mini": {
+        inputCostPer1M: 0.15, // $0.15 per 1M input tokens
+        outputCostPer1M: 0.6, // $0.60 per 1M output tokens
       },
       "gpt-4-turbo": {
         inputCostPer1M: 10.0,
