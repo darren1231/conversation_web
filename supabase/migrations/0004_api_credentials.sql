@@ -11,7 +11,7 @@ CREATE TABLE api_credentials (
 );
 
 -- 确保每个用户只有一个 provider 配置（仅限活跃的）
-CREATE UNIQUE INDEX idx_api_credentials_active
+CREATE UNIQUE INDEX IF NOT EXISTS idx_api_credentials_active
 ON api_credentials(user_id, provider)
 WHERE is_active = true;
 
