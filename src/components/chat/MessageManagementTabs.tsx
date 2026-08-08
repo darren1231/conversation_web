@@ -20,11 +20,13 @@ interface ExistingMessage {
 interface MessageManagementTabsProps {
   contactName: string;
   existingMessages?: ExistingMessage[];
+  conversationId?: string;
 }
 
 export function MessageManagementTabs({
   contactName,
   existingMessages,
+  conversationId,
 }: MessageManagementTabsProps) {
   const [activeTab, setActiveTab] = useState<"view" | "manual" | "image">(
     "view"
@@ -37,8 +39,35 @@ export function MessageManagementTabs({
   ];
 
   const handleAlternatingMessagesReady = async (messages: Message[]) => {
-    // 稍後實現：調用 API 將消息批量添加到對話中
-    console.log("Messages ready:", messages);
+    if (!conversationId) {
+      console.error("Conversation ID is required to save messages");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/messages/batch-create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId,
+          messages: messages.map((m) => ({
+            sender: m.sender,
+            content: m.content,
+            created_at: m.timestamp,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to save messages");
+      }
+
+      // Reload page to show new messages
+      window.location.reload();
+    } catch (error) {
+      console.error("Failed to save messages:", error);
+    }
   };
 
   return (

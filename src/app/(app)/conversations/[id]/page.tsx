@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ChatEditor } from "@/components/chat/ChatEditor";
+import { MessageManagementTabs } from "@/components/chat/MessageManagementTabs";
 import { AttachmentGrid } from "@/components/attachments/AttachmentGrid";
 import { DeleteConversationButton } from "@/components/conversations/DeleteConversationButton";
 import { formatDateTime } from "@/lib/utils";
@@ -146,6 +147,23 @@ export default async function ConversationDetailPage({
           </dl>
         </Card>
       )}
+
+      <div className="mb-8">
+        <MessageManagementTabs
+          contactName={contact?.nickname ?? "對方"}
+          existingMessages={
+            messages
+              ? messages.map((m) => ({
+                  id: m.id,
+                  sender: m.sender as "me" | "them",
+                  content: m.content,
+                  created_at: m.created_at,
+                }))
+              : []
+          }
+          conversationId={conversation.id}
+        />
+      </div>
 
       <div className="mb-8">
         <ChatEditor conversationId={conversation.id} messages={messages ?? []} />
