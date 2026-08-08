@@ -28,7 +28,7 @@ export async function Header() {
           href="/"
           className="shrink-0 text-sm font-bold text-zinc-900 dark:text-zinc-50"
         >
-          測試對話成長日誌
+          成功對話成長日誌
         </Link>
 
         <nav className="hidden items-center gap-1 sm:flex">
