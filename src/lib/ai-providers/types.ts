@@ -39,6 +39,8 @@ export interface SuggestRepliesInput {
   guidance?: string;
   /** 要幾個走向不同的建議。 */
   count: number;
+  /** 使用者在設定頁自訂的分析風格；省略時用內建預設。 */
+  systemPrompt?: string;
 }
 
 export interface TokenUsage {
@@ -46,8 +48,25 @@ export interface TokenUsage {
   outputTokens: number;
 }
 
-export interface SuggestRepliesResult {
+/** 完整的分析結果，不只是幾句候選回覆。 */
+export interface ConversationAnalysis {
+  /** 目前關係狀態的判讀。 */
+  relationshipRead: string;
+  /** 支持上面判讀的具體訊號，引用對話中的原話。 */
+  signals: string[];
+  /** 對「我」最後一句的點評；最後一句是對方說的時候為 null。 */
+  lastMessageNote: string | null;
   suggestions: ReplySuggestion[];
+  /** 最推薦的那則建議在 suggestions 裡的索引。 */
+  recommendedIndex: number;
+  /** 為什麼推薦那一則。 */
+  recommendationReason: string;
+  /** 如果對方接了這球，接下來可以往哪走。 */
+  nextStep: string;
+}
+
+export interface SuggestRepliesResult {
+  analysis: ConversationAnalysis;
   /** 由 API 回報的實際用量，用於成本計算。 */
   usage: TokenUsage;
 }

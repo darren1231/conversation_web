@@ -6,6 +6,7 @@ import {
   SuggestRepliesInput,
   SuggestRepliesResult,
 } from "./types";
+import { DEFAULT_ANALYSIS_PROMPT } from "./default-prompt";
 
 /** 模型有時會把 JSON 包在 markdown 代码块里，先剥掉再 parse。 */
 function extractJson(content: string): string {
@@ -150,22 +151,37 @@ export class OpenAIProvider implements AIProvider {
     const lastFromThem =
       messages.length > 0 && messages[messages.length - 1].sender === "them";
 
-    const systemPrompt = `你是一位擅長人際溝通的對話教練，專門幫使用者想「下一句要怎麼回」。
+    // 前半段是使用者可在設定頁改寫的分析風格；後半段的輸出格式由程式固定，
+    // 這樣使用者怎麼改 prompt 都不會把 JSON 解析弄壞。
+    const persona = input.systemPrompt?.trim() || DEFAULT_ANALYSIS_PROMPT;
 
-你的任務是提供 ${count} 個**走向明顯不同**的回覆選項，讓使用者挑一個直接送出。
+    const systemPrompt = `${persona}
+
+────────────────────
+【輸出格式】以下為系統要求，必須遵守。
+
+先做完整分析，再給 ${count} 個**走向明顯不同**的回覆選項。
 
 硬性要求：
-1. 每個選項的溝通策略要真的不一樣（例如：順著對方的話延伸、拋新話題、幽默帶過、認真回應、反問對方、推進見面邀約）。不要只是同義改寫，那樣沒有意義。
-2. content 必須是「可以直接複製貼上送出」的訊息原文。不要加引號、不要寫成「你可以說…」、不要有任何說明性文字。
-3. 語氣和長度要貼近對話紀錄裡「我」原本的說話習慣。對方講得短就別回長篇大論。
-4. 語言跟隨對話紀錄。對話是繁體中文就用繁體中文，是英文就用英文。
-5. 只根據提供的對話內容發揮，不要編造沒發生過的共同經歷或事實。
-6. reason 用一句話說明這樣回的效果，寫給使用者看，不要說教。
+1. 每個選項的溝通策略要真的不一樣（例如：順著對方的話延伸、丟一個梗測試對方接不接、認真回應、反問、推進見面邀約）。不要只是同義改寫，那樣沒有意義。
+2. content 必須是「可以直接複製貼上送出」的訊息原文。不要加引號、不要寫成「你可以說…」、不要夾雜任何說明性文字。
+3. signals 要引用對話裡實際出現的原話，不要空泛描述。
+4. 一定要從 ${count} 個選項裡挑一個最推薦的，把它的索引放進 recommended（從 0 開始），並在 recommendationReason 說明為什麼推它、而不是別的。不要說「都可以」。
+5. lastMessageNote：如果對話最後一句是「我」說的，點評那句話的效果，好壞都要講；如果最後一句是對方說的，這欄填 null。
+6. nextStep 說明如果對方接了這球，接下來可以往哪個方向走。
 
-只輸出 JSON 陣列，不要 markdown、不要其他文字：
-[
-  {"style": "走向標籤（4-8字）", "content": "可直接送出的訊息", "reason": "一句話說明效果"}
-]`;
+只輸出這個 JSON 物件，不要 markdown、不要其他文字：
+{
+  "relationshipRead": "目前關係狀態的判讀，2-4 句",
+  "signals": ["具體訊號，引用原話", "..."],
+  "lastMessageNote": "對我最後一句的點評，或 null",
+  "suggestions": [
+    {"style": "走向標籤（4-8字）", "content": "可直接送出的訊息", "reason": "一句話說明這樣回的效果"}
+  ],
+  "recommended": 0,
+  "recommendationReason": "為什麼推這一個",
+  "nextStep": "對方接了之後可以怎麼走"
+}`;
 
     const sections = [
       `【聊天對象】${contactName}`,
@@ -195,7 +211,7 @@ export class OpenAIProvider implements AIProvider {
           ],
           // 拉高 temperature，因為這個功能的價值就在於選項要夠不一樣。
           temperature: 0.9,
-          max_tokens: 2048,
+          max_tokens: 3072,
         }),
       });
 
@@ -211,13 +227,24 @@ export class OpenAIProvider implements AIProvider {
       if (!content) throw new Error("OpenAI 沒有回傳內容");
 
       const parsed = JSON.parse(extractJson(content));
-      if (!Array.isArray(parsed)) {
-        throw new Error("回傳格式不是陣列");
+
+      // 模型偶爾會忽略外層物件、直接吐建議陣列，這種情況也要能用。
+      const raw = Array.isArray(parsed) ? { suggestions: parsed } : parsed;
+      if (!raw || typeof raw !== "object") {
+        throw new Error("回傳格式無法解析");
       }
 
-      const suggestions: ReplySuggestion[] = parsed
-        .filter((s) => s && typeof s.content === "string" && s.content.trim())
-        .map((s) => ({
+      const suggestions: ReplySuggestion[] = (
+        Array.isArray(raw.suggestions) ? raw.suggestions : []
+      )
+        .filter(
+          (s: unknown): s is Record<string, unknown> =>
+            !!s &&
+            typeof s === "object" &&
+            typeof (s as Record<string, unknown>).content === "string" &&
+            String((s as Record<string, unknown>).content).trim().length > 0
+        )
+        .map((s: Record<string, unknown>) => ({
           style: String(s.style ?? "建議回覆").trim(),
           content: String(s.content).trim(),
           reason: String(s.reason ?? "").trim(),
@@ -227,8 +254,33 @@ export class OpenAIProvider implements AIProvider {
         throw new Error("沒有產生任何可用的建議");
       }
 
+      const signals = (Array.isArray(raw.signals) ? raw.signals : [])
+        .map((s: unknown) => String(s ?? "").trim())
+        .filter((s: string) => s.length > 0);
+
+      // 推薦索引落在範圍外就退回第一則，不要讓畫面標到不存在的項目。
+      const rawIndex = Number(raw.recommended);
+      const recommendedIndex =
+        Number.isInteger(rawIndex) &&
+        rawIndex >= 0 &&
+        rawIndex < suggestions.length
+          ? rawIndex
+          : 0;
+
+      const lastNote = String(raw.lastMessageNote ?? "").trim();
+
       return {
-        suggestions,
+        analysis: {
+          relationshipRead: String(raw.relationshipRead ?? "").trim(),
+          signals,
+          // 最後一句是對方說的時候本來就不該有點評，直接忽略模型多給的內容。
+          lastMessageNote:
+            !lastFromThem && lastNote && lastNote !== "null" ? lastNote : null,
+          suggestions,
+          recommendedIndex,
+          recommendationReason: String(raw.recommendationReason ?? "").trim(),
+          nextStep: String(raw.nextStep ?? "").trim(),
+        },
         usage: {
           inputTokens: data.usage?.prompt_tokens ?? 0,
           outputTokens: data.usage?.completion_tokens ?? 0,

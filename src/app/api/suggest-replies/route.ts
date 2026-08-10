@@ -6,6 +6,7 @@ import {
   getCredentials,
   logAPIUsage,
 } from "@/lib/actions/api-credentials";
+import { getAISystemPrompt } from "@/lib/actions/ai-settings";
 import { RELATIONSHIP_TYPE_LABEL } from "@/lib/constants";
 import type { Contact, Conversation, Message } from "@/lib/supabase/types";
 
@@ -124,20 +125,25 @@ export async function POST(request: NextRequest) {
       Math.max(MIN_SUGGESTIONS, requested)
     );
 
-    const { credential } = await getCredentialWithKey(credentialId);
+    const [{ credential }, customPrompt] = await Promise.all([
+      getCredentialWithKey(credentialId),
+      getAISystemPrompt(),
+    ]);
+
     const provider = ProviderFactory.createProvider({
       provider: credential.provider,
       model: credential.model,
       apiKey: credential.api_key,
     });
 
-    const { suggestions, usage } = await provider.suggestReplies({
+    const { analysis, usage } = await provider.suggestReplies({
       contactName: contact?.nickname ?? "對方",
       contactProfile: buildContactProfile(contact),
       conversationContext: buildConversationContext(conversation),
       messages: messages.slice(-MAX_CONTEXT_MESSAGES),
       guidance: typeof guidance === "string" ? guidance.trim() : undefined,
       count: suggestionCount,
+      systemPrompt: customPrompt ?? undefined,
     });
 
     const pricing = provider.getPricing();
@@ -162,7 +168,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      suggestions,
+      analysis,
       cost: {
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
