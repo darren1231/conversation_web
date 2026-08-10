@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
@@ -53,6 +54,12 @@ export default function APIUsagePage() {
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6">
       <div className="mb-8">
+        <Link
+          href="/settings"
+          className="mb-3 inline-block text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+        >
+          ← 回到設定
+        </Link>
         <h1 className="text-3xl font-bold dark:text-white mb-2">
           API 使用统计
         </h1>

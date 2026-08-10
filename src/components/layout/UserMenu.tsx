@@ -66,6 +66,13 @@ export function UserMenu({ displayName }: UserMenuProps) {
 
           <nav className="py-1">
             <Link
+              href="/settings"
+              className="block px-4 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              onClick={() => setIsOpen(false)}
+            >
+              ⚙️ 設定
+            </Link>
+            <Link
               href="/settings/api-keys"
               className="block px-4 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
               onClick={() => setIsOpen(false)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import APIKeysForm from "@/components/api-keys/api-keys-form";
 import APIKeysList from "@/components/api-keys/api-keys-list";
 
@@ -10,6 +11,12 @@ export default function APIKeysPage() {
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6">
       <div className="mb-8">
+        <Link
+          href="/settings"
+          className="mb-3 inline-block text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+        >
+          ← 回到設定
+        </Link>
         <h1 className="text-3xl font-bold dark:text-white mb-2">AI API 配置</h1>
         <p className="text-gray-600 dark:text-gray-400">
           設定 AI 服務商的 API Key，用於解析對話截圖與產生建議回覆。

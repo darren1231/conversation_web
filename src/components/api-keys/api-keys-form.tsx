@@ -8,10 +8,14 @@ interface APIKeysFormProps {
   onSuccess?: () => void;
 }
 
+/** 下拉選單裡代表「我要自己打模型名稱」的哨兵值。 */
+const CUSTOM_MODEL = "__custom__";
+
 export default function APIKeysForm({ onSuccess }: APIKeysFormProps) {
   const toast = useToast();
   const [provider, setProvider] = useState<string>("openai");
-  const [model, setModel] = useState<string>("gpt-4o");
+  const [selectedModel, setSelectedModel] = useState<string>("gpt-4o");
+  const [customModel, setCustomModel] = useState<string>("");
   const [apiKey, setApiKey] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -20,18 +24,27 @@ export default function APIKeysForm({ onSuccess }: APIKeysFormProps) {
   const models =
     PROVIDER_MODELS[provider as keyof typeof PROVIDER_MODELS] || [];
 
+  const isCustom = selectedModel === CUSTOM_MODEL;
+  // 實際送出的模型名稱：選單選的，或使用者自己打的。
+  const model = isCustom ? customModel.trim() : selectedModel;
+
   // 当切换 provider 时，重置 model
   const handleProviderChange = (newProvider: string) => {
     setProvider(newProvider);
     const availableModels =
       PROVIDER_MODELS[newProvider as keyof typeof PROVIDER_MODELS] || [];
-    setModel(availableModels[0] || "");
+    setSelectedModel(availableModels[0] || CUSTOM_MODEL);
+    setCustomModel("");
   };
 
   // 测试 API Key
   const handleTest = async () => {
     if (!apiKey) {
       toast.error("请输入 API Key");
+      return;
+    }
+    if (!model) {
+      toast.error("請輸入模型名稱");
       return;
     }
 
@@ -65,6 +78,10 @@ export default function APIKeysForm({ onSuccess }: APIKeysFormProps) {
 
     if (!apiKey) {
       toast.error("请输入 API Key");
+      return;
+    }
+    if (!model) {
+      toast.error("請輸入模型名稱");
       return;
     }
 
@@ -120,8 +137,8 @@ export default function APIKeysForm({ onSuccess }: APIKeysFormProps) {
           模型
         </label>
         <select
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {models.map((m) => (
@@ -129,7 +146,29 @@ export default function APIKeysForm({ onSuccess }: APIKeysFormProps) {
               {m}
             </option>
           ))}
+          <option value={CUSTOM_MODEL}>✏️ 自訂模型名稱…</option>
         </select>
+
+        {isCustom && (
+          <div className="mt-2">
+            <input
+              type="text"
+              value={customModel}
+              onChange={(e) => setCustomModel(e.target.value)}
+              placeholder="例如：gpt-4o-2024-11-20"
+              spellCheck={false}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              請填 API 文件上的完整模型 ID（不是網頁版看到的名稱）。填錯的話
+              呼叫會回 model_not_found，可以先按「測試」確認。
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+              ⚠️ 自訂模型沒有內建價格表，使用統計的花費會以 GPT-4o
+              的費率估算，僅供參考。
+            </p>
+          </div>
+        )}
       </div>
 
       {/* API Key 输入 */}
