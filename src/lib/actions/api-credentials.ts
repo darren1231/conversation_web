@@ -14,6 +14,7 @@ interface APICredential {
   provider: string;
   model: string;
   is_active: boolean;
+  system_prompt: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,7 +30,15 @@ export async function createOrUpdateCredential(input: CreateCredentialInput) {
     throw new Error("Unauthorized");
   }
 
-  // 先尝试删除同 provider 的旧凭证
+  // 這裡是「刪掉舊的再插新的」，所以要先把已設定的分析風格撈出來帶過去，
+  // 否則使用者只是換一把 key，辛苦調好的 prompt 就沒了。
+  const { data: existing } = await supabase
+    .from("api_credentials")
+    .select("system_prompt")
+    .eq("user_id", user.id)
+    .eq("provider", input.provider)
+    .maybeSingle();
+
   await supabase
     .from("api_credentials")
     .delete()
@@ -44,6 +53,7 @@ export async function createOrUpdateCredential(input: CreateCredentialInput) {
       model: input.model,
       api_key: input.apiKey,
       is_active: true,
+      system_prompt: existing?.system_prompt ?? null,
     })
     .select()
     .single();
@@ -53,6 +63,36 @@ export async function createOrUpdateCredential(input: CreateCredentialInput) {
   }
 
   return data;
+}
+
+/**
+ * 更新某一組 API 設定的分析風格 prompt。
+ * 傳入空字串代表恢復成程式內建的預設。
+ */
+export async function updateCredentialPrompt(
+  credentialId: string,
+  systemPrompt: string
+) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  const trimmed = systemPrompt.trim();
+
+  const { error } = await supabase
+    .from("api_credentials")
+    .update({ system_prompt: trimmed || null })
+    .eq("id", credentialId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    throw new Error(`Failed to save prompt: ${error.message}`);
+  }
 }
 
 // 获取用户的所有凭证

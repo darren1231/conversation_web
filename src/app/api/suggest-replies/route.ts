@@ -6,7 +6,6 @@ import {
   getCredentials,
   logAPIUsage,
 } from "@/lib/actions/api-credentials";
-import { getAISystemPrompt } from "@/lib/actions/ai-settings";
 import { RELATIONSHIP_TYPE_LABEL } from "@/lib/constants";
 import type { Contact, Conversation, Message } from "@/lib/supabase/types";
 
@@ -125,10 +124,7 @@ export async function POST(request: NextRequest) {
       Math.max(MIN_SUGGESTIONS, requested)
     );
 
-    const [{ credential }, customPrompt] = await Promise.all([
-      getCredentialWithKey(credentialId),
-      getAISystemPrompt(),
-    ]);
+    const { credential } = await getCredentialWithKey(credentialId);
 
     const provider = ProviderFactory.createProvider({
       provider: credential.provider,
@@ -143,7 +139,8 @@ export async function POST(request: NextRequest) {
       messages: messages.slice(-MAX_CONTEXT_MESSAGES),
       guidance: typeof guidance === "string" ? guidance.trim() : undefined,
       count: suggestionCount,
-      systemPrompt: customPrompt ?? undefined,
+      // 分析風格跟著這組 API 設定走；沒填就用程式內建的預設。
+      systemPrompt: credential.system_prompt?.trim() || undefined,
     });
 
     const pricing = provider.getPricing();

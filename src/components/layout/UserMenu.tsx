@@ -73,13 +73,6 @@ export function UserMenu({ displayName }: UserMenuProps) {
               🔑 API 配置
             </Link>
             <Link
-              href="/settings/ai-prompt"
-              className="block px-4 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              onClick={() => setIsOpen(false)}
-            >
-              ✨ AI 分析風格
-            </Link>
-            <Link
               href="/settings/api-usage"
               className="block px-4 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
               onClick={() => setIsOpen(false)}

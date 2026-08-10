@@ -12,7 +12,8 @@ export default function APIKeysPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold dark:text-white mb-2">AI API 配置</h1>
         <p className="text-gray-600 dark:text-gray-400">
-          配置你的 AI 服务商 API 密钥，用于自动解析对话截图
+          設定 AI 服務商的 API Key，用於解析對話截圖與產生建議回覆。
+          每一組設定底下都能各自調整 AI 的分析風格。
         </p>
       </div>
 

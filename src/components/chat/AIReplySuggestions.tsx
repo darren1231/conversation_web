@@ -196,7 +196,7 @@ export function AIReplySuggestions({
             </label>
 
             <Link
-              href="/settings/ai-prompt"
+              href="/settings/api-keys"
               className="text-xs text-zinc-500 hover:underline dark:text-zinc-400"
             >
               調整分析風格
