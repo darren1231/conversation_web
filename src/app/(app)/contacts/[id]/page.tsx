@@ -115,12 +115,30 @@ export default async function ContactDetailPage({
         </dl>
       </Card>
 
+      <Link
+        href={`/contacts/${contact.id}/log`}
+        className="mb-6 flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 transition-colors hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/70"
+      >
+        <span className="text-2xl">💬</span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+            記錄一段對話
+          </span>
+          <span className="block text-xs text-indigo-700/80 dark:text-indigo-300/80">
+            {contact.nickname} 一句、我一句地打，或上傳截圖讓 AI 解析
+          </span>
+        </span>
+        <span className="ml-auto shrink-0 text-indigo-400">→</span>
+      </Link>
+
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
           對話歷史
         </h2>
         <Link href={`/conversations/new?contactId=${contact.id}`}>
-          <Button size="sm">+ 建立新對話</Button>
+          <Button variant="secondary" size="sm">
+            + 空白對話
+          </Button>
         </Link>
       </div>
 
@@ -137,10 +155,10 @@ export default async function ContactDetailPage({
       ) : (
         <EmptyState
           title="還沒有任何對話紀錄"
-          description="為這位人物建立第一段對話紀錄吧。"
+          description="用上面的「記錄一段對話」開始，一句一句把對話打進來。"
           action={
-            <Link href={`/conversations/new?contactId=${contact.id}`}>
-              <Button>+ 建立新對話</Button>
+            <Link href={`/contacts/${contact.id}/log`}>
+              <Button>💬 記錄一段對話</Button>
             </Link>
           }
         />

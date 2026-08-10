@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ChatEditor } from "@/components/chat/ChatEditor";
-import { MessageManagementTabs } from "@/components/chat/MessageManagementTabs";
 import { AttachmentGrid } from "@/components/attachments/AttachmentGrid";
 import { DeleteConversationButton } from "@/components/conversations/DeleteConversationButton";
 import { formatDateTime } from "@/lib/utils";
@@ -148,22 +147,21 @@ export default async function ConversationDetailPage({
         </Card>
       )}
 
-      <div className="mb-8">
-        <MessageManagementTabs
-          contactName={contact?.nickname ?? "對方"}
-          existingMessages={
-            messages
-              ? messages.map((m) => ({
-                  id: m.id,
-                  sender: m.sender as "me" | "them",
-                  content: m.content,
-                  created_at: m.created_at,
-                }))
-              : []
-          }
-          conversationId={conversation.id}
-        />
-      </div>
+      <Link
+        href={`/conversations/${conversation.id}/log`}
+        className="mb-6 flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 transition-colors hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/70"
+      >
+        <span className="text-2xl">💬</span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+            接著記錄
+          </span>
+          <span className="block text-xs text-indigo-700/80 dark:text-indigo-300/80">
+            一句一句接著打，或上傳截圖讓 AI 解析後補進這段對話
+          </span>
+        </span>
+        <span className="ml-auto shrink-0 text-indigo-400">→</span>
+      </Link>
 
       <div className="mb-8">
         <ChatEditor conversationId={conversation.id} messages={messages ?? []} />
