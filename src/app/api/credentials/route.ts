@@ -3,6 +3,7 @@ import {
   createOrUpdateCredential,
   getCredentials,
   deleteCredential,
+  updateCredentialPrompt,
 } from "@/lib/actions/api-credentials";
 
 export async function POST(request: NextRequest) {
@@ -40,12 +41,13 @@ export async function GET() {
   try {
     const credentials = await getCredentials();
 
-    // 不返回加密后的 API Key（安全考虑）
+    // 不返回 API Key（安全考虑）
     const safeCredentials = credentials.map((c) => ({
       id: c.id,
       provider: c.provider,
       model: c.model,
       is_active: c.is_active,
+      system_prompt: c.system_prompt ?? "",
       created_at: c.created_at,
       updated_at: c.updated_at,
     }));
@@ -57,6 +59,31 @@ export async function GET() {
       {
         error:
           error instanceof Error ? error.message : "Failed to fetch credentials",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const { credentialId, systemPrompt } = await request.json();
+
+    if (!credentialId || typeof systemPrompt !== "string") {
+      return NextResponse.json(
+        { error: "Missing required fields: credentialId, systemPrompt" },
+        { status: 400 }
+      );
+    }
+
+    await updateCredentialPrompt(credentialId, systemPrompt);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Update credential prompt error:", error);
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to save prompt",
       },
       { status: 500 }
     );

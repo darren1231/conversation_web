@@ -15,6 +15,16 @@ interface Suggestion {
   reason: string;
 }
 
+interface Analysis {
+  relationshipRead: string;
+  signals: string[];
+  lastMessageNote: string | null;
+  suggestions: Suggestion[];
+  recommendedIndex: number;
+  recommendationReason: string;
+  nextStep: string;
+}
+
 interface CostInfo {
   inputTokens: number;
   outputTokens: number;
@@ -47,7 +57,7 @@ export function AIReplySuggestions({
   const [guidance, setGuidance] = useState("");
   const [count, setCount] = useState(3);
   const [loading, setLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [cost, setCost] = useState<CostInfo | null>(null);
   const [needsApiKey, setNeedsApiKey] = useState(false);
   const [adoptedIndex, setAdoptedIndex] = useState<number | null>(null);
@@ -74,7 +84,7 @@ export function AIReplySuggestions({
         throw new Error(payload.error || "產生建議失敗");
       }
 
-      setSuggestions(payload.suggestions);
+      setAnalysis(payload.analysis);
       setCost(payload.cost ?? null);
       setAdoptedIndex(null);
     } catch (error) {
@@ -185,13 +195,20 @@ export function AIReplySuggestions({
               </select>
             </label>
 
+            <Link
+              href="/settings/api-keys"
+              className="text-xs text-zinc-500 hover:underline dark:text-zinc-400"
+            >
+              調整分析風格
+            </Link>
+
             <Button
               type="button"
               onClick={generate}
               loading={loading}
               className="ml-auto"
             >
-              {suggestions ? "換一批建議" : "✨ 產生建議回覆"}
+              {analysis ? "換一批建議" : "✨ 分析並給我建議"}
             </Button>
           </div>
 
@@ -206,22 +223,72 @@ export function AIReplySuggestions({
             </div>
           )}
 
-          {suggestions && suggestions.length > 0 && (
+          {analysis && (
             <div className="flex flex-col gap-3">
-              {suggestions.map((suggestion, index) => (
+              {/* 關係判讀 + 佐證訊號 */}
+              {(analysis.relationshipRead || analysis.signals.length > 0) && (
+                <div className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+                  <h3 className="mb-1.5 text-xs font-bold text-zinc-900 dark:text-zinc-50">
+                    🔍 目前的關係判讀
+                  </h3>
+                  {analysis.relationshipRead && (
+                    <p className="whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-200">
+                      {analysis.relationshipRead}
+                    </p>
+                  )}
+                  {analysis.signals.length > 0 && (
+                    <ul className="mt-2 flex flex-col gap-1">
+                      {analysis.signals.map((signal, i) => (
+                        <li
+                          key={i}
+                          className="flex gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
+                        >
+                          <span className="shrink-0 text-violet-500">·</span>
+                          <span>{signal}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {/* 對我最後一句的點評 */}
+              {analysis.lastMessageNote && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+                  <h3 className="mb-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
+                    💭 你最後那句話
+                  </h3>
+                  <p className="whitespace-pre-wrap text-sm text-amber-900/90 dark:text-amber-100/90">
+                    {analysis.lastMessageNote}
+                  </p>
+                </div>
+              )}
+
+              <h3 className="mt-1 text-xs font-bold text-zinc-900 dark:text-zinc-50">
+                💬 可以這樣回
+              </h3>
+
+              {analysis.suggestions.map((suggestion, index) => (
                 <article
                   key={`${suggestion.style}-${index}`}
                   className={cn(
                     "rounded-xl border bg-white p-3 dark:bg-zinc-900",
                     adoptedIndex === index
                       ? "border-emerald-400 dark:border-emerald-600"
-                      : "border-zinc-200 dark:border-zinc-700",
+                      : index === analysis.recommendedIndex
+                        ? "border-violet-400 ring-1 ring-violet-200 dark:border-violet-600 dark:ring-violet-900"
+                        : "border-zinc-200 dark:border-zinc-700",
                   )}
                 >
-                  <div className="mb-2 flex items-center gap-2">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-700 dark:bg-violet-900/60 dark:text-violet-200">
                       {suggestion.style}
                     </span>
+                    {index === analysis.recommendedIndex && (
+                      <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+                        ⭐ 最推薦
+                      </span>
+                    )}
                     {adoptedIndex === index && (
                       <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
                         ✓ 已加入對話
@@ -259,6 +326,29 @@ export function AIReplySuggestions({
                   </div>
                 </article>
               ))}
+
+              {analysis.recommendationReason && (
+                <div className="rounded-xl border border-violet-200 bg-violet-100/60 p-3 dark:border-violet-800 dark:bg-violet-950/40">
+                  <h3 className="mb-1.5 text-xs font-bold text-violet-900 dark:text-violet-200">
+                    ⭐ 為什麼推薦「
+                    {analysis.suggestions[analysis.recommendedIndex]?.style}」
+                  </h3>
+                  <p className="whitespace-pre-wrap text-sm text-violet-900/90 dark:text-violet-100/90">
+                    {analysis.recommendationReason}
+                  </p>
+                </div>
+              )}
+
+              {analysis.nextStep && (
+                <div className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+                  <h3 className="mb-1.5 text-xs font-bold text-zinc-900 dark:text-zinc-50">
+                    🎯 對方接了之後
+                  </h3>
+                  <p className="whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-200">
+                    {analysis.nextStep}
+                  </p>
+                </div>
+              )}
 
               {cost && (
                 <p className="text-right text-[11px] text-zinc-400 dark:text-zinc-500">

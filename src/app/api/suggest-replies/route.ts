@@ -125,19 +125,22 @@ export async function POST(request: NextRequest) {
     );
 
     const { credential } = await getCredentialWithKey(credentialId);
+
     const provider = ProviderFactory.createProvider({
       provider: credential.provider,
       model: credential.model,
       apiKey: credential.api_key,
     });
 
-    const { suggestions, usage } = await provider.suggestReplies({
+    const { analysis, usage } = await provider.suggestReplies({
       contactName: contact?.nickname ?? "對方",
       contactProfile: buildContactProfile(contact),
       conversationContext: buildConversationContext(conversation),
       messages: messages.slice(-MAX_CONTEXT_MESSAGES),
       guidance: typeof guidance === "string" ? guidance.trim() : undefined,
       count: suggestionCount,
+      // 分析風格跟著這組 API 設定走；沒填就用程式內建的預設。
+      systemPrompt: credential.system_prompt?.trim() || undefined,
     });
 
     const pricing = provider.getPricing();
@@ -162,7 +165,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      suggestions,
+      analysis,
       cost: {
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
