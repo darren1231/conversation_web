@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ChatEditor } from "@/components/chat/ChatEditor";
+import { AIReplySuggestions } from "@/components/chat/AIReplySuggestions";
 import { AttachmentGrid } from "@/components/attachments/AttachmentGrid";
 import { DeleteConversationButton } from "@/components/conversations/DeleteConversationButton";
 import { formatDateTime } from "@/lib/utils";
@@ -165,6 +166,14 @@ export default async function ConversationDetailPage({
 
       <div className="mb-8">
         <ChatEditor conversationId={conversation.id} messages={messages ?? []} />
+      </div>
+
+      <div className="mb-8">
+        <AIReplySuggestions
+          conversationId={conversation.id}
+          contactName={contact?.nickname ?? "對方"}
+          hasMessages={(messages?.length ?? 0) > 0}
+        />
       </div>
 
       <AttachmentGrid
