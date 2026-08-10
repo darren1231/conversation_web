@@ -14,7 +14,7 @@ const CUSTOM_MODEL = "__custom__";
 export default function APIKeysForm({ onSuccess }: APIKeysFormProps) {
   const toast = useToast();
   const [provider, setProvider] = useState<string>("openai");
-  const [selectedModel, setSelectedModel] = useState<string>("gpt-4o");
+  const [selectedModel, setSelectedModel] = useState<string>("gpt-5.6-luna");
   const [customModel, setCustomModel] = useState<string>("");
   const [apiKey, setApiKey] = useState<string>("");
   const [loading, setLoading] = useState(false);

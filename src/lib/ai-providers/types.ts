@@ -85,8 +85,18 @@ export interface APICredentialConfig {
 // 支持的 Provider 列表
 export type SupportedProvider = "openai" | "claude" | "gemini";
 
+// 注意：gpt-5.6 這個別名會導向 Sol，想用 Luna 一定要填完整的 gpt-5.6-luna。
 export const PROVIDER_MODELS: Record<SupportedProvider, string[]> = {
-  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+  openai: [
+    "gpt-5.6-luna",
+    "gpt-5.6-terra",
+    "gpt-5.6-sol",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4-turbo",
+    "gpt-4",
+    "gpt-3.5-turbo",
+  ],
   claude: ["claude-3-5-sonnet", "claude-3-opus", "claude-3-sonnet"],
   gemini: ["gemini-2.0-flash", "gemini-1.5-pro"],
 };

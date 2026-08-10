@@ -14,6 +14,27 @@ function extractJson(content: string): string {
   return fenced ? fenced[1] : content;
 }
 
+/**
+ * GPT-5 世代（含 gpt-5.6 sol/terra/luna）與 o 系列推理模型改了請求格式：
+ * max_tokens 改名為 max_completion_tokens，temperature / top_p 等取樣參數
+ * 直接被移除，送了會回 400 Unsupported parameter。
+ */
+function isNextGenModel(model: string): boolean {
+  return /^(gpt-5|o[1-9])/i.test(model);
+}
+
+/** 錯誤訊息看起來像是「這個模型不吃舊參數」。 */
+function looksLikeParamRejection(message: string): boolean {
+  return /unsupported parameter|unsupported value|max_tokens|temperature/i.test(
+    message
+  );
+}
+
+interface ChatMessage {
+  role: string;
+  content: unknown;
+}
+
 export class OpenAIProvider implements AIProvider {
   private apiKey: string;
   private model: string;
@@ -22,6 +43,69 @@ export class OpenAIProvider implements AIProvider {
   constructor(apiKey: string, model: string = "gpt-4o") {
     this.apiKey = apiKey;
     this.model = model;
+  }
+
+  private buildBody(
+    messages: ChatMessage[],
+    maxTokens: number,
+    temperature: number,
+    forceNextGen = false
+  ) {
+    const body: Record<string, unknown> = { model: this.model, messages };
+
+    if (forceNextGen || isNextGenModel(this.model)) {
+      body.max_completion_tokens = maxTokens;
+      // temperature 不送 —— 這代模型只接受預設值。
+    } else {
+      body.max_tokens = maxTokens;
+      body.temperature = temperature;
+    }
+
+    return body;
+  }
+
+  /**
+   * 呼叫 chat/completions。使用者可以自己填模型名稱，我們無法預先知道那個
+   * 模型吃哪一種參數格式，所以舊格式被拒時自動改用新格式重試一次。
+   */
+  private async chatCompletion(
+    messages: ChatMessage[],
+    maxTokens: number,
+    temperature: number
+  ) {
+    const send = (body: Record<string, unknown>) =>
+      fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+    let response = await send(this.buildBody(messages, maxTokens, temperature));
+
+    if (!response.ok && response.status === 400) {
+      const error = await response.json().catch(() => ({}));
+      const message: string = error.error?.message ?? "";
+
+      if (!isNextGenModel(this.model) && looksLikeParamRejection(message)) {
+        response = await send(
+          this.buildBody(messages, maxTokens, temperature, true)
+        );
+      } else {
+        throw new Error(message || `OpenAI API error: 400`);
+      }
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(
+        error.error?.message || `OpenAI API error: ${response.status}`
+      );
+    }
+
+    return response.json();
   }
 
   async testConnection(): Promise<{ success: boolean; error?: string }> {
@@ -54,27 +138,20 @@ export class OpenAIProvider implements AIProvider {
     imageBase64: string
   ): Promise<ParsedMessage[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: `data:image/jpeg;base64,${imageBase64}`,
-                  },
+      const data = await this.chatCompletion(
+        [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/jpeg;base64,${imageBase64}`,
                 },
-                {
-                  type: "text",
-                  text: `Please extract all messages from this conversation screenshot.
+              },
+              {
+                type: "text",
+                text: `Please extract all messages from this conversation screenshot.
                   Return a JSON array with this exact format (no markdown, just raw JSON):
                   [
                     {"sender": "me", "content": "message text", "timestamp": "optional timestamp"},
@@ -87,23 +164,14 @@ export class OpenAIProvider implements AIProvider {
                   - Keep exact formatting and emojis
                   - If timestamps are visible, include them in ISO format
                   - Return ONLY the JSON array, no other text`,
-                },
-              ],
-            },
-          ],
-          temperature: 0,
-          max_tokens: 4096,
-        }),
-      });
+              },
+            ],
+          },
+        ],
+        4096,
+        0
+      );
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(
-          error.error?.message || `OpenAI API error: ${response.status}`
-        );
-      }
-
-      const data = await response.json();
       const content = data.choices[0]?.message?.content;
 
       if (!content) {
@@ -197,32 +265,17 @@ export class OpenAIProvider implements AIProvider {
     ].filter(Boolean);
 
     try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: sections.join("\n\n") },
-          ],
-          // 拉高 temperature，因為這個功能的價值就在於選項要夠不一樣。
-          temperature: 0.9,
-          max_tokens: 3072,
-        }),
-      });
+      const data = await this.chatCompletion(
+        [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: sections.join("\n\n") },
+        ],
+        3072,
+        // 舊世代模型拉高 temperature，因為這功能的價值就在選項要夠不一樣；
+        // GPT-5 世代不吃這個參數，多樣性改由 prompt 的硬性要求來確保。
+        0.9
+      );
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(
-          error.error?.message || `OpenAI API error: ${response.status}`
-        );
-      }
-
-      const data = await response.json();
       const content = data.choices[0]?.message?.content;
       if (!content) throw new Error("OpenAI 沒有回傳內容");
 
@@ -296,9 +349,21 @@ export class OpenAIProvider implements AIProvider {
   }
 
   getPricing(): ProviderPricing {
-    // OpenAI pricing as of 2025-08
-    // Reference: https://openai.com/pricing
+    // OpenAI 標準短脈絡費率，含 2026-07-30 的降價（Luna -80%、Terra -20%）
+    // Reference: https://openai.com/index/advancing-the-price-performance-frontier-with-gpt-5-6/
     const pricingMap: Record<string, ProviderPricing> = {
+      "gpt-5.6-luna": {
+        inputCostPer1M: 0.2, // $0.20 per 1M input tokens
+        outputCostPer1M: 1.2, // $1.20 per 1M output tokens
+      },
+      "gpt-5.6-terra": {
+        inputCostPer1M: 2.0,
+        outputCostPer1M: 12.0,
+      },
+      "gpt-5.6-sol": {
+        inputCostPer1M: 5.0,
+        outputCostPer1M: 30.0,
+      },
       "gpt-4o": {
         inputCostPer1M: 2.5, // $2.50 per 1M input tokens
         outputCostPer1M: 10.0, // $10.00 per 1M output tokens
