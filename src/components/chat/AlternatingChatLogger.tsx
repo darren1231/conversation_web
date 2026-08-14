@@ -8,6 +8,9 @@ import {
   createConversationLog,
   type LogEntryInput,
 } from "@/lib/actions/conversations";
+import { addAttachment } from "@/lib/actions/attachments";
+import { createClient } from "@/lib/supabase/client";
+import { uploadPrivateImage } from "@/lib/storage";
 import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Field";
@@ -42,11 +45,21 @@ export function makeDraft(
   };
 }
 
+/**
+ * 校對用的原始截圖：編輯期間顯示在對話串下方方便逐句比對，
+ * 儲存成功後會上傳成這段對話的附件，畫面上就跟著收掉。
+ */
+export interface ReferenceImage {
+  file: File;
+  previewUrl: string;
+}
+
 export function AlternatingChatLogger({
   contactName,
   contactId,
   conversationId,
   initialDrafts,
+  referenceImage,
   startWith = "them",
 }: {
   contactName: string;
@@ -54,6 +67,7 @@ export function AlternatingChatLogger({
   contactId?: string;
   conversationId?: string;
   initialDrafts?: DraftEntry[];
+  referenceImage?: ReferenceImage;
   startWith?: MessageSender;
 }) {
   const router = useRouter();
@@ -68,6 +82,7 @@ export function AlternatingChatLogger({
   const [time, setTime] = useState(nowTimeValue());
   const [showTime, setShowTime] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [showReference, setShowReference] = useState(true);
 
   const senderLabel = (s: MessageSender) => (s === "me" ? "我" : contactName);
 
@@ -108,6 +123,41 @@ export function AlternatingChatLogger({
     });
   }
 
+  /**
+   * 把校對用的截圖收進這段對話的附件。校對稿已經存好了，所以這裡失敗只提醒，
+   * 不會把整次儲存當成失敗。
+   */
+  async function saveReferenceImage(targetConversationId: string) {
+    if (!referenceImage) return;
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("截圖沒有存成附件：登入狀態已過期");
+      return;
+    }
+
+    const uploaded = await uploadPrivateImage(
+      supabase,
+      user.id,
+      `screenshots/${targetConversationId}`,
+      referenceImage.file,
+    );
+    if ("error" in uploaded) {
+      toast.error(`截圖沒有存成附件：${uploaded.error}`);
+      return;
+    }
+
+    const result = await addAttachment(
+      targetConversationId,
+      uploaded.path,
+      "AI 解析來源截圖",
+    );
+    if (result.error) toast.error(`截圖沒有存成附件：${result.error}`);
+  }
+
   function handleSave() {
     if (drafts.length === 0) {
       toast.error("還沒有任何對話內容");
@@ -132,11 +182,15 @@ export function AlternatingChatLogger({
       }
 
       toast.success(`已儲存 ${drafts.length} 句對話`);
-      setDrafts([]);
 
+      // 附加到既有對話時就是原本那筆；新建時才從回傳值拿到新的 id。
       const targetId =
-        conversationId ??
-        (result.data && "id" in result.data ? result.data.id : undefined);
+        conversationId ?? (result.data as { id?: string } | undefined)?.id;
+
+      // 校對結束＝截圖任務結束：存進資料庫後畫面上就不用再留著它。
+      if (targetId) await saveReferenceImage(targetId);
+
+      setDrafts([]);
       if (targetId) router.push(`/conversations/${targetId}`);
       router.refresh();
     });
@@ -195,6 +249,37 @@ export function AlternatingChatLogger({
 
                   {editingKey === draft.key ? (
                     <div className="flex flex-col gap-2 py-1">
+                      {/* AI 認錯發言者是常見狀況，所以編輯時第一件事就是能改「這句是誰說的」。 */}
+                      <div className="inline-flex overflow-hidden rounded-lg border border-zinc-300 dark:border-zinc-600">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateDraft(draft.key, { sender: "them" })
+                          }
+                          className={cn(
+                            "flex-1 px-2 py-1 text-xs font-semibold",
+                            draft.sender === "them"
+                              ? "bg-zinc-700 text-white dark:bg-zinc-600"
+                              : "bg-white text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
+                          )}
+                        >
+                          {contactName} 說
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateDraft(draft.key, { sender: "me" })
+                          }
+                          className={cn(
+                            "flex-1 px-2 py-1 text-xs font-semibold",
+                            draft.sender === "me"
+                              ? "bg-indigo-600 text-white"
+                              : "bg-white text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
+                          )}
+                        >
+                          我說
+                        </button>
+                      </div>
                       <textarea
                         value={draft.content}
                         onChange={(e) =>
@@ -256,6 +341,18 @@ export function AlternatingChatLogger({
                     </button>
                     <button
                       type="button"
+                      onClick={() =>
+                        updateDraft(draft.key, {
+                          sender: draft.sender === "me" ? "them" : "me",
+                        })
+                      }
+                      className="hover:underline"
+                      title="換成另一個人說的"
+                    >
+                      換人
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => moveDraft(index, -1)}
                       disabled={index === 0}
                       className="disabled:opacity-30"
@@ -286,6 +383,41 @@ export function AlternatingChatLogger({
           </ul>
         )}
       </div>
+
+      {/* ── 校對用的原始截圖 ─────────────────────────────── */}
+      {referenceImage && (
+        <div className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                原始截圖
+              </h3>
+              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                對照著改上面的內容；儲存後會一起存進這段對話。
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowReference((v) => !v)}
+              className="shrink-0 text-xs text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              {showReference ? "收合" : "展開"}
+            </button>
+          </div>
+
+          {showReference && (
+            // 手機上限制高度並讓它自己捲動，才不會把校對稿推到看不見的地方。
+            <div className="mt-2 max-h-[60vh] overflow-auto rounded-lg bg-zinc-100 p-2 dark:bg-zinc-950">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={referenceImage.previewUrl}
+                alt="AI 解析來源的對話截圖"
+                className="mx-auto w-full max-w-md rounded-lg"
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── 輸入區：現在輪到誰 ───────────────────────────── */}
       <div className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">

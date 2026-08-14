@@ -183,7 +183,10 @@ export function ImageImportPanel({
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          <span>AI 解析結果請先確認，發言者或順序有錯都可以直接改。</span>
+          <span>
+            AI 解析結果請先確認，發言者、時間或順序有錯都可以直接改，
+            下方保留原始截圖方便比對。
+          </span>
           <button
             type="button"
             onClick={() => setDrafts(null)}
@@ -197,6 +200,9 @@ export function ImageImportPanel({
           contactId={contactId}
           conversationId={conversationId}
           initialDrafts={drafts}
+          referenceImage={
+            file && previewUrl ? { file, previewUrl } : undefined
+          }
         />
       </div>
     );
