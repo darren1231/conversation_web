@@ -1,5 +1,6 @@
 import {
   AIProvider,
+  ParseImageContext,
   ParsedMessage,
   ProviderPricing,
   ReplySuggestion,
@@ -7,6 +8,7 @@ import {
   SuggestRepliesResult,
 } from "./types";
 import { DEFAULT_ANALYSIS_PROMPT } from "./default-prompt";
+import { buildParseImagePrompt, normalizeParsedMessages } from "./parse-image";
 
 /** 模型有時會把 JSON 包在 markdown 代码块里，先剥掉再 parse。 */
 function extractJson(content: string): string {
@@ -51,7 +53,8 @@ export class OpenAIProvider implements AIProvider {
   }
 
   async parseConversationImage(
-    imageBase64: string
+    imageBase64: string,
+    context?: ParseImageContext
   ): Promise<ParsedMessage[]> {
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -70,23 +73,14 @@ export class OpenAIProvider implements AIProvider {
                   type: "image_url",
                   image_url: {
                     url: `data:image/jpeg;base64,${imageBase64}`,
+                    // 判斷發言者靠的是泡泡貼哪一邊、有沒有頭像，還有引用區塊裡
+                    // 那行小字，低解析度看不清楚就會判錯，所以固定用 high。
+                    detail: "high",
                   },
                 },
                 {
                   type: "text",
-                  text: `Please extract all messages from this conversation screenshot.
-                  Return a JSON array with this exact format (no markdown, just raw JSON):
-                  [
-                    {"sender": "me", "content": "message text", "timestamp": "optional timestamp"},
-                    {"sender": "them", "content": "reply text", "timestamp": "optional timestamp"}
-                  ]
-
-                  Rules:
-                  - Identify who is "me" (usually the user) and who is "them" (other person)
-                  - Extract all messages in order
-                  - Keep exact formatting and emojis
-                  - If timestamps are visible, include them in ISO format
-                  - Return ONLY the JSON array, no other text`,
+                  text: buildParseImagePrompt(context),
                 },
               ],
             },
@@ -110,19 +104,7 @@ export class OpenAIProvider implements AIProvider {
         throw new Error("No response from OpenAI");
       }
 
-      const messages: ParsedMessage[] = JSON.parse(extractJson(content));
-
-      // 验证格式
-      if (!Array.isArray(messages)) {
-        throw new Error("Response is not an array");
-      }
-
-      return messages.filter(
-        (msg) =>
-          msg.sender &&
-          (msg.sender === "me" || msg.sender === "them") &&
-          msg.content
-      );
+      return normalizeParsedMessages(JSON.parse(extractJson(content)), context);
     } catch (error) {
       throw new Error(
         `Failed to parse image with OpenAI: ${
