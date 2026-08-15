@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getSignedUrls } from "@/lib/storage";
 import { Card } from "@/components/ui/Card";
@@ -8,10 +9,8 @@ import { ContactCard } from "@/components/contacts/ContactCard";
 import { ConversationCard } from "@/components/conversations/ConversationCard";
 
 export default async function HomePage() {
+  const user = await getCurrentUser();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const [
     { count: contactCount },
@@ -49,13 +48,13 @@ export default async function HomePage() {
   const avatarPaths = (recentContacts ?? [])
     .map((c) => c.avatar_url)
     .filter((v): v is string => Boolean(v));
-  const signedUrls = await getSignedUrls(supabase, avatarPaths);
 
   const conversationIds = (recentConversations ?? []).map((c) => c.id);
   const contactIds = Array.from(
     new Set((recentConversations ?? []).map((c) => c.contact_id)),
   );
-  const [{ data: tagRows }, { data: contactRows }] = await Promise.all([
+  const [signedUrls, { data: tagRows }, { data: contactRows }] = await Promise.all([
+    getSignedUrls(supabase, avatarPaths),
     conversationIds.length > 0
       ? supabase
           .from("conversation_tags")
@@ -66,6 +65,7 @@ export default async function HomePage() {
       ? supabase.from("contacts").select("id, nickname").in("id", contactIds)
       : Promise.resolve({ data: [] as { id: string; nickname: string }[] }),
   ]);
+
   const tagsByConversation = new Map<string, string[]>();
   for (const row of tagRows ?? []) {
     const list = tagsByConversation.get(row.conversation_id) ?? [];
