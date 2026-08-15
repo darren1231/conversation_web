@@ -2,8 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/supabase/auth";
-import { getSignedUrl } from "@/lib/storage";
-import { Avatar } from "@/components/ui/Avatar";
+import { StreamedAvatar } from "@/components/ui/StreamedAvatar";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -25,38 +24,38 @@ export default async function ContactDetailPage({
   const supabase = await createClient();
   const user = await getAuthUser();
 
-  const { data: contactRow } = await supabase
-    .from("contacts")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", user!.id)
-    .maybeSingle();
+  // 三筆都只靠網址上的 id 和使用者 id，彼此不依賴，所以一次發完 —— 這頁因此
+  // 只需要一趟往返。標籤本來是等對話清單回來後再用 .in(ids) 撈，那會多一整趟；
+  // 改成直接撈這個使用者的標籤再於記憶體內配對，量級跟這頁本來就要載入的
+  // 對話清單相當。
+  const [{ data: contactRow }, { data: conversations }, { data: tagRows }] =
+    await Promise.all([
+      supabase
+        .from("contacts")
+        .select("*")
+        .eq("id", id)
+        .eq("user_id", user!.id)
+        .maybeSingle(),
+      supabase
+        .from("conversations")
+        .select("*")
+        .eq("contact_id", id)
+        .eq("user_id", user!.id)
+        .order("occurred_at", { ascending: false }),
+      supabase
+        .from("conversation_tags")
+        .select("conversation_id, tag")
+        .eq("user_id", user!.id),
+    ]);
 
   if (!contactRow) notFound();
   const contact = contactRow as Contact;
 
-  const [{ data: conversations }, avatarSignedUrl] = await Promise.all([
-    supabase
-      .from("conversations")
-      .select("*")
-      .eq("contact_id", id)
-      .eq("user_id", user!.id)
-      .order("occurred_at", { ascending: false }),
-    contact.avatar_url ? getSignedUrl(supabase, contact.avatar_url) : null,
-  ]);
-
-  const conversationIds = (conversations ?? []).map((c) => c.id);
   const tagsByConversation = new Map<string, string[]>();
-  if (conversationIds.length > 0) {
-    const { data: tagRows } = await supabase
-      .from("conversation_tags")
-      .select("conversation_id, tag")
-      .in("conversation_id", conversationIds);
-    for (const row of tagRows ?? []) {
-      const list = tagsByConversation.get(row.conversation_id) ?? [];
-      list.push(row.tag);
-      tagsByConversation.set(row.conversation_id, list);
-    }
+  for (const row of tagRows ?? []) {
+    const list = tagsByConversation.get(row.conversation_id) ?? [];
+    list.push(row.tag);
+    tagsByConversation.set(row.conversation_id, list);
   }
 
   const infoRows: { label: string; value: string | null }[] = [
@@ -71,14 +70,20 @@ export default async function ContactDetailPage({
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-4">
-          <Avatar src={avatarSignedUrl} name={contact.nickname} size={64} />
+          <StreamedAvatar
+            path={contact.avatar_url}
+            name={contact.nickname}
+            size={64}
+          />
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
                 {contact.nickname}
               </h1>
               {contact.relationship_type && (
-                <Badge>{RELATIONSHIP_TYPE_LABEL[contact.relationship_type]}</Badge>
+                <Badge>
+                  {RELATIONSHIP_TYPE_LABEL[contact.relationship_type]}
+                </Badge>
               )}
               {contact.status && (
                 <Badge>{INTERACTION_STATUS_LABEL[contact.status]}</Badge>

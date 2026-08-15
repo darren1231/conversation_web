@@ -12,16 +12,24 @@ import { formatRelative } from "@/lib/utils";
 export function ContactCard({
   contact,
   avatarSignedUrl,
+  /**
+   * 頭像的替代插槽。清單頁會傳一個包在 Suspense 裡的頭像進來，讓「換圖片網址」
+   * 那趟 Storage 往返不要擋住名字和其他文字先顯示。
+   */
+  avatar,
   conversationCount,
 }: {
   contact: Contact;
   avatarSignedUrl?: string | null;
+  avatar?: React.ReactNode;
   conversationCount?: number;
 }) {
   return (
     <Link href={`/contacts/${contact.id}`}>
       <Card className="flex items-center gap-3 transition-colors hover:border-indigo-300 dark:hover:border-indigo-600">
-        <Avatar src={avatarSignedUrl} name={contact.nickname} size={48} />
+        {avatar ?? (
+          <Avatar src={avatarSignedUrl} name={contact.nickname} size={48} />
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate font-semibold text-zinc-900 dark:text-zinc-50">

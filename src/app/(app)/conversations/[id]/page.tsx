@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { cache, Suspense } from "react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/supabase/auth";
 import { getSignedUrls } from "@/lib/storage";
-import { Avatar } from "@/components/ui/Avatar";
+import { StreamedAvatar } from "@/components/ui/StreamedAvatar";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -12,6 +13,23 @@ import { AIReplySuggestions } from "@/components/chat/AIReplySuggestions";
 import { AttachmentGrid } from "@/components/attachments/AttachmentGrid";
 import { DeleteConversationButton } from "@/components/conversations/DeleteConversationButton";
 import { formatDateTime } from "@/lib/utils";
+import type { Attachment, Contact } from "@/lib/supabase/types";
+
+/**
+ * 人物資料要等對話回來才知道 contact_id，是這頁唯一真正的第二趟查詢。
+ * 用到它的地方（上方的人物連結、AI 建議的稱呼）都各自串流，所以整頁的
+ * 主要內容 —— 標題、摘要、標籤、聊天訊息 —— 只等第一波就能顯示。
+ * 包一層 cache()，兩個地方共用同一次查詢。
+ */
+const getContact = cache(async (contactId: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("contacts")
+    .select("*")
+    .eq("id", contactId)
+    .maybeSingle();
+  return (data ?? null) as Contact | null;
+});
 
 export default async function ConversationDetailPage({
   params,
@@ -22,45 +40,35 @@ export default async function ConversationDetailPage({
   const supabase = await createClient();
   const user = await getAuthUser();
 
-  const { data: conversation } = await supabase
-    .from("conversations")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", user!.id)
-    .maybeSingle();
+  // 訊息、標籤、附件都只需要網址上的 id，不必等對話本身回來才能查 ——
+  // 一起發出去，這頁就少掉一整趟往返。RLS 仍會擋掉不屬於自己的資料列。
+  const [
+    { data: conversation },
+    { data: messages },
+    { data: tags },
+    { data: attachments },
+  ] = await Promise.all([
+    supabase
+      .from("conversations")
+      .select("*")
+      .eq("id", id)
+      .eq("user_id", user!.id)
+      .maybeSingle(),
+    supabase
+      .from("messages")
+      .select("*")
+      .eq("conversation_id", id)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase.from("conversation_tags").select("tag").eq("conversation_id", id),
+    supabase
+      .from("attachments")
+      .select("*")
+      .eq("conversation_id", id)
+      .order("sort_order", { ascending: true }),
+  ]);
 
   if (!conversation) notFound();
-
-  const [{ data: contact }, { data: messages }, { data: tags }, { data: attachments }] =
-    await Promise.all([
-      supabase
-        .from("contacts")
-        .select("*")
-        .eq("id", conversation.contact_id)
-        .maybeSingle(),
-      supabase
-        .from("messages")
-        .select("*")
-        .eq("conversation_id", id)
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true }),
-      supabase.from("conversation_tags").select("tag").eq("conversation_id", id),
-      supabase
-        .from("attachments")
-        .select("*")
-        .eq("conversation_id", id)
-        .order("sort_order", { ascending: true }),
-    ]);
-
-  const attachmentPaths = (attachments ?? []).map((a) => a.storage_path);
-  const avatarPath = contact?.avatar_url ?? null;
-  // 附件和頭像一起簽：分成兩次呼叫會變成兩趟串行的 Storage 往返，
-  // 而它們是這頁最後才跑的，等於直接加在使用者看到內容的時間上。
-  const signedUrls = await getSignedUrls(
-    supabase,
-    avatarPath ? [...attachmentPaths, avatarPath] : attachmentPaths,
-  );
-  const contactAvatarUrl = avatarPath ? (signedUrls[avatarPath] ?? null) : null;
 
   const infoRows: { label: string; value: string | null }[] = [
     { label: "對話背景", value: conversation.context },
@@ -73,15 +81,10 @@ export default async function ConversationDetailPage({
   return (
     <div>
       <div className="mb-4">
-        {contact && (
-          <Link
-            href={`/contacts/${contact.id}`}
-            className="mb-3 inline-flex items-center gap-2 text-sm text-indigo-600 hover:underline dark:text-indigo-400"
-          >
-            <Avatar src={contactAvatarUrl} name={contact.nickname} size={24} />
-            {contact.nickname}
-          </Link>
-        )}
+        <Suspense fallback={<ContactLinkPlaceholder />}>
+          <ContactLink contactId={conversation.contact_id} />
+        </Suspense>
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
@@ -98,12 +101,10 @@ export default async function ConversationDetailPage({
                 編輯對話
               </Button>
             </Link>
-            {contact && (
-              <DeleteConversationButton
-                conversationId={conversation.id}
-                contactId={contact.id}
-              />
-            )}
+            <DeleteConversationButton
+              conversationId={conversation.id}
+              contactId={conversation.contact_id}
+            />
           </div>
         </div>
       </div>
@@ -172,18 +173,90 @@ export default async function ConversationDetailPage({
       </div>
 
       <div className="mb-8">
-        <AIReplySuggestions
-          conversationId={conversation.id}
-          contactName={contact?.nickname ?? "對方"}
-          hasMessages={(messages?.length ?? 0) > 0}
-        />
+        <Suspense fallback={null}>
+          <ReplySuggestions
+            conversationId={conversation.id}
+            contactId={conversation.contact_id}
+            hasMessages={(messages?.length ?? 0) > 0}
+          />
+        </Suspense>
       </div>
 
-      <AttachmentGrid
-        conversationId={conversation.id}
-        attachments={attachments ?? []}
-        signedUrls={signedUrls}
-      />
+      <Suspense fallback={null}>
+        <Attachments
+          conversationId={conversation.id}
+          attachments={(attachments ?? []) as Attachment[]}
+        />
+      </Suspense>
     </div>
+  );
+}
+
+async function ContactLink({ contactId }: { contactId: string }) {
+  const contact = await getContact(contactId);
+  if (!contact) return null;
+
+  return (
+    <Link
+      href={`/contacts/${contact.id}`}
+      className="mb-3 inline-flex items-center gap-2 text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+    >
+      <StreamedAvatar
+        path={contact.avatar_url}
+        name={contact.nickname}
+        size={24}
+      />
+      {contact.nickname}
+    </Link>
+  );
+}
+
+/** 跟載入後的人物連結同高，補上時不會把標題往下推。 */
+function ContactLinkPlaceholder() {
+  return (
+    <div className="mb-3 flex items-center gap-2" aria-hidden>
+      <div className="h-6 w-6 animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-800" />
+      <div className="h-4 w-20 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800/70" />
+    </div>
+  );
+}
+
+async function ReplySuggestions({
+  conversationId,
+  contactId,
+  hasMessages,
+}: {
+  conversationId: string;
+  contactId: string;
+  hasMessages: boolean;
+}) {
+  const contact = await getContact(contactId);
+  return (
+    <AIReplySuggestions
+      conversationId={conversationId}
+      contactName={contact?.nickname ?? "對方"}
+      hasMessages={hasMessages}
+    />
+  );
+}
+
+async function Attachments({
+  conversationId,
+  attachments,
+}: {
+  conversationId: string;
+  attachments: Attachment[];
+}) {
+  const supabase = await createClient();
+  const signedUrls = await getSignedUrls(
+    supabase,
+    attachments.map((a) => a.storage_path),
+  );
+  return (
+    <AttachmentGrid
+      conversationId={conversationId}
+      attachments={attachments}
+      signedUrls={signedUrls}
+    />
   );
 }
