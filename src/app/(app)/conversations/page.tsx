@@ -19,27 +19,30 @@ export default async function ConversationsPage() {
   const contactIds = Array.from(
     new Set((conversations ?? []).map((c) => c.contact_id)),
   );
-  const { data: contacts } =
+  const conversationIds = (conversations ?? []).map((c) => c.id);
+  const [{ data: contacts }, { data: tagRows }] = await Promise.all([
     contactIds.length > 0
-      ? await supabase
+      ? supabase
           .from("contacts")
           .select("id, nickname")
           .in("id", contactIds)
-      : { data: [] };
+      : Promise.resolve({ data: [] as { id: string; nickname: string }[] }),
+    conversationIds.length > 0
+      ? supabase
+          .from("conversation_tags")
+          .select("conversation_id, tag")
+          .in("conversation_id", conversationIds)
+      : Promise.resolve({
+          data: [] as { conversation_id: string; tag: string }[],
+        }),
+  ]);
   const nameById = new Map((contacts ?? []).map((c) => [c.id, c.nickname]));
 
-  const conversationIds = (conversations ?? []).map((c) => c.id);
   const tagsByConversation = new Map<string, string[]>();
-  if (conversationIds.length > 0) {
-    const { data: tagRows } = await supabase
-      .from("conversation_tags")
-      .select("conversation_id, tag")
-      .in("conversation_id", conversationIds);
-    for (const row of tagRows ?? []) {
-      const list = tagsByConversation.get(row.conversation_id) ?? [];
-      list.push(row.tag);
-      tagsByConversation.set(row.conversation_id, list);
-    }
+  for (const row of tagRows ?? []) {
+    const list = tagsByConversation.get(row.conversation_id) ?? [];
+    list.push(row.tag);
+    tagsByConversation.set(row.conversation_id, list);
   }
 
   return (
