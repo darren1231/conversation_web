@@ -4,7 +4,10 @@ export interface AIProvider {
   testConnection(): Promise<{ success: boolean; error?: string }>;
 
   // 解析对话图片
-  parseConversationImage(imageBase64: string): Promise<ParsedMessage[]>;
+  parseConversationImage(
+    imageBase64: string,
+    context?: ParseImageContext
+  ): Promise<ParsedMessage[]>;
 
   // 根据对话纪录，产生多个走向不同的建议回覆
   suggestReplies(input: SuggestRepliesInput): Promise<SuggestRepliesResult>;
@@ -13,10 +16,36 @@ export interface AIProvider {
   getPricing(): ProviderPricing;
 }
 
+/**
+ * 解析截圖時可以提供的背景資訊。
+ * 有名字可以對照時，模型判斷「這句是誰說的」會穩定很多。
+ */
+export interface ParseImageContext {
+  /** 對方的稱呼，通常等於截圖最上方標題列顯示的名字。 */
+  contactName?: string;
+  /** 「我」在截圖裡顯示的名字：引用區塊、群組標籤上會出現。 */
+  selfName?: string;
+}
+
+/**
+ * 截圖上那塊「回覆某則舊訊息」的引用預覽。
+ * 它是被回覆的舊訊息的節錄，不是一句獨立訊息，所以只掛在訊息上供校對比對用。
+ */
+export interface QuotedPreview {
+  /** 引用區塊上顯示的名字，例如 "Darren"。 */
+  name?: string;
+  /** 對得上 contactName / selfName 時才判定得出來：被引用的那句是誰說的。 */
+  sender?: "me" | "them";
+  /** 引用區塊上的文字，通常是被截斷的一行。 */
+  excerpt: string;
+}
+
 export interface ParsedMessage {
   sender: "me" | "them";
   content: string;
   timestamp?: string; // ISO format
+  /** 這句是回覆舊訊息時，截圖上跟著它的引用預覽。 */
+  replyTo?: QuotedPreview;
 }
 
 /** 一則建議回覆。style 是走向標籤，content 可直接複製送出。 */

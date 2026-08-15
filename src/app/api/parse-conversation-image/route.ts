@@ -6,6 +6,13 @@ import {
   logAPIUsage,
 } from "@/lib/actions/api-credentials";
 
+/** 名字会被拼进 prompt，所以只收短字串，太长或非字串一律当没给。 */
+function asName(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed && trimmed.length <= 60 ? trimmed : undefined;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await getAuthUser();
@@ -14,7 +21,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { imageBase64, credentialId, conversationId } = body;
+    const { imageBase64, credentialId, conversationId, contactName, selfName } =
+      body;
 
     if (!imageBase64 || !credentialId) {
       return NextResponse.json(
@@ -33,8 +41,11 @@ export async function POST(request: NextRequest) {
       apiKey: credential.api_key,
     });
 
-    // 解析图片
-    const messages = await provider.parseConversationImage(imageBase64);
+    // 解析图片。带上双方的名字，模型判断「这句是谁说的」会稳定很多。
+    const messages = await provider.parseConversationImage(imageBase64, {
+      contactName: asName(contactName),
+      selfName: asName(selfName),
+    });
 
     // 获取 pricing 信息并计算成本
     const pricing = provider.getPricing();

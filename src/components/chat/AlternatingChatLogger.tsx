@@ -16,12 +16,23 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Field";
 import { cn, nowDateValue, nowTimeValue } from "@/lib/utils";
 
+/**
+ * 截圖上跟著這句話的「回覆引用」預覽。
+ * 它是被回覆的那則舊訊息的節錄，本身不是一句對話，所以只在校對時顯示，不會存進紀錄。
+ */
+export interface DraftQuote {
+  name?: string;
+  sender?: MessageSender;
+  excerpt: string;
+}
+
 export interface DraftEntry {
   key: string;
   sender: MessageSender;
   content: string;
   date: string;
   time: string;
+  replyTo?: DraftQuote;
 }
 
 let keySeq = 0;
@@ -35,6 +46,7 @@ export function makeDraft(
   content: string,
   date?: string,
   time?: string,
+  replyTo?: DraftQuote,
 ): DraftEntry {
   return {
     key: makeKey(),
@@ -42,6 +54,7 @@ export function makeDraft(
     content,
     date: date || nowDateValue(),
     time: time || nowTimeValue(),
+    ...(replyTo ? { replyTo } : {}),
   };
 }
 
@@ -111,6 +124,13 @@ export function AlternatingChatLogger({
   function removeDraft(key: string) {
     setDrafts((prev) => prev.filter((d) => d.key !== key));
     if (editingKey === key) setEditingKey(null);
+  }
+
+  /** AI 有時候是整段左右判反，一句一句換人太慢，給一個一次全翻的按鈕。 */
+  function swapAllSenders() {
+    setDrafts((prev) =>
+      prev.map((d) => ({ ...d, sender: d.sender === "me" ? "them" : "me" })),
+    );
   }
 
   function moveDraft(index: number, direction: -1 | 1) {
@@ -203,9 +223,21 @@ export function AlternatingChatLogger({
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             對話內容
           </h3>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            {drafts.length} 句
-          </span>
+          <div className="flex items-center gap-3">
+            {drafts.length > 1 && (
+              <button
+                type="button"
+                onClick={swapAllSenders}
+                className="text-xs text-indigo-600 hover:underline dark:text-indigo-400"
+                title={`把每一句都改成另一個人說的（我 ↔ ${contactName}）`}
+              >
+                全部換邊
+              </button>
+            )}
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              {drafts.length} 句
+            </span>
+          </div>
         </div>
 
         {drafts.length === 0 ? (
@@ -245,6 +277,29 @@ export function AlternatingChatLogger({
                     </span>
                     <span>{draft.time}</span>
                   </div>
+
+                  {/*
+                    截圖上的回覆引用。標示出來是為了讓人一眼看懂「這句雖然引用了我的話，
+                    但說話的還是對方」，被引用的那則舊訊息不會被當成一句新對話存起來。
+                  */}
+                  {draft.replyTo && (
+                    <div
+                      className={cn(
+                        "mb-1 border-l-2 pl-2 text-[11px]",
+                        draft.sender === "me"
+                          ? "border-indigo-300 text-indigo-100"
+                          : "border-zinc-300 text-zinc-500 dark:border-zinc-600 dark:text-zinc-400",
+                      )}
+                    >
+                      ↩ 回覆
+                      {draft.replyTo.sender
+                        ? ` ${senderLabel(draft.replyTo.sender)}`
+                        : draft.replyTo.name
+                          ? ` ${draft.replyTo.name}`
+                          : ""}
+                      ：{draft.replyTo.excerpt}
+                    </div>
+                  )}
 
                   {editingKey === draft.key ? (
                     <div className="flex flex-col gap-2 py-1">

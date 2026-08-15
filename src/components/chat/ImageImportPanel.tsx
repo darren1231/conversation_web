@@ -9,7 +9,7 @@ import {
 } from "@/components/chat/AlternatingChatLogger";
 import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
-import { Select } from "@/components/ui/Field";
+import { Input, Select } from "@/components/ui/Field";
 import { compressImage } from "@/lib/storage";
 import { nowDateValue } from "@/lib/utils";
 
@@ -24,6 +24,33 @@ interface ParsedMessage {
   sender: "me" | "them";
   content: string;
   timestamp?: string;
+  replyTo?: { name?: string; sender?: "me" | "them"; excerpt: string };
+}
+
+/**
+ * 截圖裡「我」顯示的名字。這是判斷發言者的關鍵線索：
+ * 對方回覆我的訊息時，引用區塊上掛的是我的名字，卻長在對方的泡泡上，
+ * 沒有這個名字可以對照的話，AI 很容易把那顆泡泡判給錯的人。
+ * 每次都要重打太煩，所以記在瀏覽器裡。
+ */
+const SELF_NAME_KEY = "conversation-web:self-name";
+
+function readStoredSelfName(): string {
+  try {
+    return localStorage.getItem(SELF_NAME_KEY) ?? "";
+  } catch {
+    // 無痕模式等情況讀不到就算了，只是少一個判斷線索。
+    return "";
+  }
+}
+
+function storeSelfName(name: string) {
+  try {
+    if (name) localStorage.setItem(SELF_NAME_KEY, name);
+    else localStorage.removeItem(SELF_NAME_KEY);
+  } catch {
+    // 存不進去不影響這次解析。
+  }
 }
 
 /** AI 回傳的 timestamp 格式不保證，抓得到時分就用，抓不到就留空。 */
@@ -66,6 +93,7 @@ export function ImageImportPanel({
   const [file, setFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
   const [drafts, setDrafts] = useState<DraftEntry[] | null>(null);
+  const [selfName, setSelfName] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -81,7 +109,12 @@ export function ImageImportPanel({
       } catch {
         if (!cancelled) setCredentials([]);
       } finally {
-        if (!cancelled) setLoadingCredentials(false);
+        if (!cancelled) {
+          // localStorage 只有瀏覽器讀得到，跟著這次非同步結果一起帶進來，
+          // 就不會在伺服器與瀏覽器渲染出不一樣的欄位值。
+          setSelfName(readStoredSelfName());
+          setLoadingCredentials(false);
+        }
       }
     }
     load();
@@ -123,10 +156,19 @@ export function ImageImportPanel({
       const compressed = await compressImage(file);
       const imageBase64 = await fileToBase64(compressed);
 
+      const trimmedSelfName = selfName.trim();
+      storeSelfName(trimmedSelfName);
+
       const res = await fetch("/api/parse-conversation-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64, credentialId, conversationId }),
+        body: JSON.stringify({
+          imageBase64,
+          credentialId,
+          conversationId,
+          contactName,
+          selfName: trimmedSelfName || undefined,
+        }),
       });
 
       const payload = await res.json();
@@ -146,6 +188,7 @@ export function ImageImportPanel({
             m.content,
             today,
             timeFromTimestamp(m.timestamp),
+            m.replyTo?.excerpt ? m.replyTo : undefined,
           ),
         ),
       );
@@ -185,7 +228,8 @@ export function ImageImportPanel({
         <div className="flex items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <span>
             AI 解析結果請先確認，發言者、時間或順序有錯都可以直接改，
-            下方保留原始截圖方便比對。
+            整段左右判反時可按「全部換邊」，下方保留原始截圖方便比對。
+            截圖上的回覆引用會標成「↩ 回覆」附在該句上，不會另外算成一句。
           </span>
           <button
             type="button"
@@ -224,6 +268,22 @@ export function ImageImportPanel({
             </option>
           ))}
         </Select>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          我在截圖裡顯示的名字（選填）
+        </label>
+        <Input
+          value={selfName}
+          onChange={(e) => setSelfName(e.target.value)}
+          placeholder="例如：Darren"
+          maxLength={60}
+        />
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          填了之後，{contactName}回覆我的訊息、截圖上出現我名字的引用區塊，
+          AI 才不會把那句誤判成{contactName}說的。下次會自動帶入。
+        </p>
       </div>
 
       <div
