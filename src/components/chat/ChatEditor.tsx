@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Message } from "@/lib/supabase/types";
 import { MessageBubble } from "@/components/chat/MessageBubble";
@@ -16,12 +15,10 @@ export function ChatEditor({
   conversationId: string;
   messages: Message[];
 }) {
-  const router = useRouter();
+  // 新增／編輯／刪除訊息的 server action 自己會 revalidate 並要求 router
+  // 更新，所以這裡不需要再補一次 router.refresh() —— 那會讓每一次操作多跑一
+  // 趟完整的頁面重算。
   const [showBatchPaste, setShowBatchPaste] = useState(false);
-
-  function refresh() {
-    router.refresh();
-  }
 
   return (
     <div>
@@ -51,22 +48,18 @@ export function ChatEditor({
               key={message.id}
               message={message}
               conversationId={conversationId}
-              onChanged={refresh}
             />
           ))
         )}
       </div>
 
-      <MessageComposer conversationId={conversationId} onAdded={refresh} />
+      <MessageComposer conversationId={conversationId} />
 
       {showBatchPaste && (
         <BatchPasteDialog
           conversationId={conversationId}
           onClose={() => setShowBatchPaste(false)}
-          onSaved={() => {
-            setShowBatchPaste(false);
-            refresh();
-          }}
+          onSaved={() => setShowBatchPaste(false)}
         />
       )}
     </div>

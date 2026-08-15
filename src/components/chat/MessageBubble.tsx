@@ -12,11 +12,9 @@ import { MessageEditForm } from "@/components/chat/MessageEditForm";
 export function MessageBubble({
   message,
   conversationId,
-  onChanged,
 }: {
   message: Message;
   conversationId: string;
-  onChanged: () => void;
 }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
@@ -32,7 +30,6 @@ export function MessageBubble({
         return;
       }
       toast.success("訊息已刪除");
-      onChanged();
     });
   }
 
@@ -43,10 +40,7 @@ export function MessageBubble({
           <MessageEditForm
             conversationId={conversationId}
             message={message}
-            onSaved={() => {
-              setEditing(false);
-              onChanged();
-            }}
+            onSaved={() => setEditing(false)}
             onCancel={() => setEditing(false)}
           />
         </div>

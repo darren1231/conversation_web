@@ -9,10 +9,8 @@ import { Button } from "@/components/ui/Button";
 
 export function AttachmentUploader({
   conversationId,
-  onUploaded,
 }: {
   conversationId: string;
-  onUploaded: () => void;
 }) {
   const toast = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,7 +64,6 @@ export function AttachmentUploader({
 
     if (successCount > 0) {
       toast.success(`已上傳 ${successCount} 張截圖`);
-      onUploaded();
     }
     if (failCount > 0) {
       toast.error(`${failCount} 張截圖上傳失敗`);

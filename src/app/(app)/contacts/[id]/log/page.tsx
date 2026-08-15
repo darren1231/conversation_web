@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { ChatLogTabs } from "@/components/chat/ChatLogTabs";
 
 export default async function ContactLogPage({
@@ -10,9 +11,7 @@ export default async function ContactLogPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   const { data: contact } = await supabase
     .from("contacts")

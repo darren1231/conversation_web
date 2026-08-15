@@ -1,7 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import type { InteractionStatus, RelationshipType } from "@/lib/supabase/types";
 
 export interface ContactFormInput {
@@ -44,9 +45,7 @@ export async function createContact(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { data, error } = await supabase
@@ -70,6 +69,7 @@ export async function createContact(
 
   revalidatePath("/contacts");
   revalidatePath("/");
+  refresh();
   return { data: { id: data.id } };
 }
 
@@ -83,9 +83,7 @@ export async function updateContact(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { error } = await supabase
@@ -109,6 +107,7 @@ export async function updateContact(
   revalidatePath("/contacts");
   revalidatePath(`/contacts/${contactId}`);
   revalidatePath("/");
+  refresh();
   return {};
 }
 
@@ -117,9 +116,7 @@ export async function updateContactAvatar(
   storagePath: string | null,
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { error } = await supabase
@@ -133,14 +130,13 @@ export async function updateContactAvatar(
   revalidatePath("/contacts");
   revalidatePath(`/contacts/${contactId}`);
   revalidatePath("/");
+  refresh();
   return {};
 }
 
 export async function deleteContact(contactId: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { error } = await supabase
@@ -153,5 +149,6 @@ export async function deleteContact(contactId: string): Promise<ActionResult> {
 
   revalidatePath("/contacts");
   revalidatePath("/");
+  refresh();
   return {};
 }

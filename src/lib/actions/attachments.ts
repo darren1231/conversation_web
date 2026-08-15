@@ -1,7 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import type { ActionResult } from "@/lib/actions/contacts";
 import { removeStorageObjects } from "@/lib/storage";
 
@@ -11,9 +12,7 @@ export async function addAttachment(
   caption: string,
 ): Promise<ActionResult<{ id: string }>> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { data: last } = await supabase
@@ -39,6 +38,7 @@ export async function addAttachment(
   if (error) return { error: error.message };
 
   revalidatePath(`/conversations/${conversationId}`);
+  refresh();
   return { data: { id: data.id } };
 }
 
@@ -48,9 +48,7 @@ export async function updateAttachmentCaption(
   caption: string,
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { error } = await supabase
@@ -62,6 +60,7 @@ export async function updateAttachmentCaption(
   if (error) return { error: error.message };
 
   revalidatePath(`/conversations/${conversationId}`);
+  refresh();
   return {};
 }
 
@@ -70,9 +69,7 @@ export async function reorderAttachments(
   orderedIds: string[],
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   await Promise.all(
@@ -86,6 +83,7 @@ export async function reorderAttachments(
   );
 
   revalidatePath(`/conversations/${conversationId}`);
+  refresh();
   return {};
 }
 
@@ -95,9 +93,7 @@ export async function deleteAttachment(
   storagePath: string,
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { error } = await supabase
@@ -111,5 +107,6 @@ export async function deleteAttachment(
   await removeStorageObjects(supabase, [storagePath]);
 
   revalidatePath(`/conversations/${conversationId}`);
+  refresh();
   return {};
 }

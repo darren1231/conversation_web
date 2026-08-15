@@ -27,7 +27,6 @@ export function DeleteContactButton({ contactId }: { contactId: string }) {
       }
       toast.success("人物已刪除");
       router.push("/contacts");
-      router.refresh();
     });
   }
 

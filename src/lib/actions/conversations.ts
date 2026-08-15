@@ -1,7 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import type { ActionResult } from "@/lib/actions/contacts";
 import type { MessageSender } from "@/lib/supabase/types";
 import { formatDate } from "@/lib/utils";
@@ -76,9 +77,7 @@ export async function createConversation(
   if (!input.title) return { error: "對話標題為必填欄位" };
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { data, error } = await supabase
@@ -108,6 +107,7 @@ export async function createConversation(
 
   revalidatePath(`/contacts/${contactId}`);
   revalidatePath("/");
+  refresh();
   return { data: { id: data.id } };
 }
 
@@ -136,9 +136,7 @@ export async function createConversationLog(
   if (cleaned.length === 0) return { error: "至少要有一句對話才能儲存" };
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { data: contact } = await supabase
@@ -193,6 +191,7 @@ export async function createConversationLog(
   revalidatePath(`/contacts/${contactId}`);
   revalidatePath(`/conversations/${conversation.id}`);
   revalidatePath("/");
+  refresh();
   return { data: { id: conversation.id, count: rows.length } };
 }
 
@@ -207,9 +206,7 @@ export async function appendConversationLog(
   if (cleaned.length === 0) return { error: "至少要有一句對話才能儲存" };
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { data: conversation } = await supabase
@@ -246,6 +243,7 @@ export async function appendConversationLog(
 
   revalidatePath(`/conversations/${conversationId}`);
   revalidatePath(`/contacts/${conversation.contact_id}`);
+  refresh();
   return { data: { count: rows.length } };
 }
 
@@ -258,9 +256,7 @@ export async function updateConversation(
   if (!input.title) return { error: "對話標題為必填欄位" };
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { error } = await supabase
@@ -288,6 +284,7 @@ export async function updateConversation(
   revalidatePath(`/conversations/${conversationId}`);
   revalidatePath(`/contacts/${contactId}`);
   revalidatePath("/");
+  refresh();
   return {};
 }
 
@@ -296,9 +293,7 @@ export async function deleteConversation(
   contactId: string,
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { error } = await supabase
@@ -311,5 +306,6 @@ export async function deleteConversation(
 
   revalidatePath(`/contacts/${contactId}`);
   revalidatePath("/");
+  refresh();
   return {};
 }

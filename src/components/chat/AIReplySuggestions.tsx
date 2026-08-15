@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { addMessage } from "@/lib/actions/messages";
 import { useToast } from "@/components/ui/Toast";
@@ -50,7 +49,6 @@ export function AIReplySuggestions({
   contactName: string;
   hasMessages: boolean;
 }) {
-  const router = useRouter();
   const toast = useToast();
   const [isAdopting, startAdopting] = useTransition();
 
@@ -121,7 +119,6 @@ export function AIReplySuggestions({
 
       setAdoptedIndex(index);
       toast.success("已加入這段對話，記得實際送出後再回來看效果");
-      router.refresh();
     });
   }
 

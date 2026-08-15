@@ -11,10 +11,8 @@ import { cn, nowDateValue, nowTimeValue } from "@/lib/utils";
 
 export function MessageComposer({
   conversationId,
-  onAdded,
 }: {
   conversationId: string;
-  onAdded: () => void;
 }) {
   const toast = useToast();
   const [isPending, startTransition] = useTransition();
@@ -47,7 +45,6 @@ export function MessageComposer({
       }
       setContent("");
       setNote("");
-      onAdded();
     });
   }
 

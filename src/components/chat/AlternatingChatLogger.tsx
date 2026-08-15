@@ -192,7 +192,6 @@ export function AlternatingChatLogger({
 
       setDrafts([]);
       if (targetId) router.push(`/conversations/${targetId}`);
-      router.refresh();
     });
   }
 

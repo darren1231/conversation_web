@@ -31,7 +31,6 @@ export function DeleteConversationButton({
       }
       toast.success("對話已刪除");
       router.push(`/contacts/${contactId}`);
-      router.refresh();
     });
   }
 

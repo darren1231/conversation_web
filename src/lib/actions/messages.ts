@@ -1,7 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import type { ActionResult } from "@/lib/actions/contacts";
 import type { MessageSender, MessageType } from "@/lib/supabase/types";
 
@@ -37,9 +38,7 @@ export async function addMessage(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const sortOrder = await nextSortOrder(supabase, conversationId);
@@ -63,6 +62,7 @@ export async function addMessage(
   if (error) return { error: error.message };
 
   revalidatePath(`/conversations/${conversationId}`);
+  refresh();
   return { data: { id: data.id } };
 }
 
@@ -73,9 +73,7 @@ export async function batchAddMessages(
   if (items.length === 0) return { error: "沒有可儲存的訊息" };
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   let sortOrder = await nextSortOrder(supabase, conversationId);
@@ -96,6 +94,7 @@ export async function batchAddMessages(
   if (error) return { error: error.message };
 
   revalidatePath(`/conversations/${conversationId}`);
+  refresh();
   return { data: { count: rows.length } };
 }
 
@@ -105,9 +104,7 @@ export async function updateMessage(
   input: MessageInput,
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { error } = await supabase
@@ -126,6 +123,7 @@ export async function updateMessage(
   if (error) return { error: error.message };
 
   revalidatePath(`/conversations/${conversationId}`);
+  refresh();
   return {};
 }
 
@@ -134,9 +132,7 @@ export async function deleteMessage(
   conversationId: string,
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "請重新登入" };
 
   const { error } = await supabase
@@ -148,5 +144,6 @@ export async function deleteMessage(
   if (error) return { error: error.message };
 
   revalidatePath(`/conversations/${conversationId}`);
+  refresh();
   return {};
 }

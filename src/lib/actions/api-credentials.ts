@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 
 interface CreateCredentialInput {
   provider: string;
@@ -23,9 +24,7 @@ interface APICredential {
 export async function createOrUpdateCredential(input: CreateCredentialInput) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     throw new Error("Unauthorized");
   }
@@ -75,9 +74,7 @@ export async function updateCredentialPrompt(
 ) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     throw new Error("Unauthorized");
   }
@@ -99,9 +96,7 @@ export async function updateCredentialPrompt(
 export async function getCredentials(): Promise<APICredential[]> {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     throw new Error("Unauthorized");
   }
@@ -123,9 +118,7 @@ export async function getCredentials(): Promise<APICredential[]> {
 export async function getActiveCredential(provider: string) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     throw new Error("Unauthorized");
   }
@@ -152,9 +145,7 @@ export async function getCredentialWithKey(
 ): Promise<{ credential: APICredential & { api_key: string } }> {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     throw new Error("Unauthorized");
   }
@@ -182,9 +173,7 @@ export async function getCredentialWithKey(
 export async function deleteCredential(credentialId: string) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     throw new Error("Unauthorized");
   }
@@ -217,9 +206,7 @@ export async function logAPIUsage(
 ) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     throw new Error("Unauthorized");
   }
@@ -251,9 +238,7 @@ export async function logAPIUsage(
 export async function getUsageStats(period: "day" | "month" | "all" = "all") {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     throw new Error("Unauthorized");
   }
