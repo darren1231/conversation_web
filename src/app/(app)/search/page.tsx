@@ -67,30 +67,25 @@ export default async function SearchPage({
     ...(matchedTags ?? []).map((t) => t.conversation_id),
     ...(matchedMessages ?? []).map((m) => m.conversation_id),
   ]);
-  const { data: relatedConversations } =
-    conversationIdsNeeded.size > 0
-      ? await supabase
-          .from("conversations")
-          .select("id, contact_id, title, occurred_at")
-          .in("id", Array.from(conversationIdsNeeded))
-      : { data: [] };
+
+  // 這裡本來是三段串行：搜尋 → 補對話 → 再補那些對話的人物名字。
+  // 名字只是要顯示用的一小段文字，而且這是個人用的工具，人物本來就不多，
+  // 所以乾脆在第二波把自己的人物一次撈完，換掉整整一趟往返。
+  const [{ data: relatedConversations }, { data: allContacts }] =
+    await Promise.all([
+      conversationIdsNeeded.size > 0
+        ? supabase
+            .from("conversations")
+            .select("id, contact_id, title, occurred_at")
+            .in("id", Array.from(conversationIdsNeeded))
+        : Promise.resolve({ data: [] }),
+      supabase.from("contacts").select("id, nickname").eq("user_id", user!.id),
+    ]);
   const conversationById = new Map(
     (relatedConversations ?? []).map((c) => [c.id, c]),
   );
-
-  const contactIdsNeeded = new Set<string>([
-    ...(matchedConversations ?? []).map((c) => c.contact_id),
-    ...(relatedConversations ?? []).map((c) => c.contact_id),
-  ]);
-  const { data: relatedContacts } =
-    contactIdsNeeded.size > 0
-      ? await supabase
-          .from("contacts")
-          .select("id, nickname")
-          .in("id", Array.from(contactIdsNeeded))
-      : { data: [] };
   const contactNameById = new Map(
-    (relatedContacts ?? []).map((c) => [c.id, c.nickname]),
+    (allContacts ?? []).map((c) => [c.id, c.nickname]),
   );
 
   const totalResults =
