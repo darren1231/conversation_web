@@ -1,18 +1,17 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { SearchBar } from "@/components/search/SearchBar";
 import { UserMenu } from "@/components/layout/UserMenu";
 
 export async function Header() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   let displayName = user?.email ?? "";
   if (user) {
+    const supabase = await createClient();
     const { data: profile } = await supabase
       .from("profiles")
       .select("display_name")

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getSignedUrls } from "@/lib/storage";
 import { Avatar } from "@/components/ui/Avatar";
@@ -18,10 +19,8 @@ export default async function ConversationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await getCurrentUser();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const { data: conversation } = await supabase
     .from("conversations")
@@ -54,9 +53,12 @@ export default async function ConversationDetailPage({
     ]);
 
   const attachmentPaths = (attachments ?? []).map((a) => a.storage_path);
-  const signedUrls = await getSignedUrls(supabase, attachmentPaths);
+  const allSignedPaths = contact?.avatar_url
+    ? [...attachmentPaths, contact.avatar_url]
+    : attachmentPaths;
+  const signedUrls = await getSignedUrls(supabase, allSignedPaths);
   const contactAvatarUrl = contact?.avatar_url
-    ? (await getSignedUrls(supabase, [contact.avatar_url]))[contact.avatar_url]
+    ? signedUrls[contact.avatar_url] ?? null
     : null;
 
   const infoRows: { label: string; value: string | null }[] = [

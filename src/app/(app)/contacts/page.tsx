@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getSignedUrls } from "@/lib/storage";
 import { ContactCard } from "@/components/contacts/ContactCard";
@@ -6,21 +7,20 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export default async function ContactsPage() {
+  const user = await getCurrentUser();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  const { data: contacts } = await supabase
-    .from("contacts")
-    .select("*")
-    .eq("user_id", user!.id)
-    .order("updated_at", { ascending: false });
-
-  const { data: conversations } = await supabase
-    .from("conversations")
-    .select("contact_id")
-    .eq("user_id", user!.id);
+  const [{ data: contacts }, { data: conversations }] = await Promise.all([
+    supabase
+      .from("contacts")
+      .select("*")
+      .eq("user_id", user!.id)
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("conversations")
+      .select("contact_id")
+      .eq("user_id", user!.id),
+  ]);
 
   const countByContact = new Map<string, number>();
   for (const c of conversations ?? []) {

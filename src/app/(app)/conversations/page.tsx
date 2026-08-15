@@ -1,14 +1,13 @@
 import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ConversationCard } from "@/components/conversations/ConversationCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 
 export default async function ConversationsPage() {
+  const user = await getCurrentUser();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const { data: conversations } = await supabase
     .from("conversations")
@@ -19,27 +18,31 @@ export default async function ConversationsPage() {
   const contactIds = Array.from(
     new Set((conversations ?? []).map((c) => c.contact_id)),
   );
-  const { data: contacts } =
+  const conversationIds = (conversations ?? []).map((c) => c.id);
+
+  const [{ data: contacts }, { data: tagRows }] = await Promise.all([
     contactIds.length > 0
-      ? await supabase
+      ? supabase
           .from("contacts")
           .select("id, nickname")
           .in("id", contactIds)
-      : { data: [] };
-  const nameById = new Map((contacts ?? []).map((c) => [c.id, c.nickname]));
+      : Promise.resolve({ data: [] as { id: string; nickname: string }[] }),
+    conversationIds.length > 0
+      ? supabase
+          .from("conversation_tags")
+          .select("conversation_id, tag")
+          .in("conversation_id", conversationIds)
+      : Promise.resolve({
+          data: [] as { conversation_id: string; tag: string }[],
+        }),
+  ]);
 
-  const conversationIds = (conversations ?? []).map((c) => c.id);
+  const nameById = new Map((contacts ?? []).map((c) => [c.id, c.nickname]));
   const tagsByConversation = new Map<string, string[]>();
-  if (conversationIds.length > 0) {
-    const { data: tagRows } = await supabase
-      .from("conversation_tags")
-      .select("conversation_id, tag")
-      .in("conversation_id", conversationIds);
-    for (const row of tagRows ?? []) {
-      const list = tagsByConversation.get(row.conversation_id) ?? [];
-      list.push(row.tag);
-      tagsByConversation.set(row.conversation_id, list);
-    }
+  for (const row of tagRows ?? []) {
+    const list = tagsByConversation.get(row.conversation_id) ?? [];
+    list.push(row.tag);
+    tagsByConversation.set(row.conversation_id, list);
   }
 
   return (
