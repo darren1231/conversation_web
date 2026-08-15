@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { ConversationForm } from "@/components/conversations/ConversationForm";
 
 export default async function EditConversationPage({
@@ -9,9 +10,7 @@ export default async function EditConversationPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   const { data: conversation } = await supabase
     .from("conversations")

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { Attachment } from "@/lib/supabase/types";
 import {
@@ -23,16 +22,11 @@ export function AttachmentGrid({
   attachments: Attachment[];
   signedUrls: Record<string, string>;
 }) {
-  const router = useRouter();
   const toast = useToast();
   const [isPending, startTransition] = useTransition();
   const [captions, setCaptions] = useState<Record<string, string>>(
     Object.fromEntries(attachments.map((a) => [a.id, a.caption ?? ""])),
   );
-
-  function refresh() {
-    router.refresh();
-  }
 
   function handleCaptionBlur(attachmentId: string) {
     const caption = captions[attachmentId] ?? "";
@@ -59,7 +53,6 @@ export function AttachmentGrid({
         return;
       }
       toast.success("截圖已刪除");
-      refresh();
     });
   }
 
@@ -77,7 +70,6 @@ export function AttachmentGrid({
         toast.error(result.error);
         return;
       }
-      refresh();
     });
   }
 
@@ -87,7 +79,7 @@ export function AttachmentGrid({
         <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
           聊天截圖
         </h2>
-        <AttachmentUploader conversationId={conversationId} onUploaded={refresh} />
+        <AttachmentUploader conversationId={conversationId} />
       </div>
 
       {attachments.length === 0 ? (

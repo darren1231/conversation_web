@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { getSignedUrls } from "@/lib/storage";
 import { ContactCard } from "@/components/contacts/ContactCard";
 import { Button } from "@/components/ui/Button";
@@ -7,9 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 
 export default async function ContactsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   const { data: contacts } = await supabase
     .from("contacts")

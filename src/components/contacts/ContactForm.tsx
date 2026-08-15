@@ -78,7 +78,6 @@ export function ContactForm({
 
       toast.success(contact ? "人物資料已更新" : "人物已建立");
       router.push(`/contacts/${contactId}`);
-      router.refresh();
     });
   }
 

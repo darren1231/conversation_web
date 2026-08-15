@@ -37,7 +37,6 @@ export function ConversationForm({
       toast.success(conversation ? "對話已更新" : "對話已建立");
       const targetId = conversation?.id ?? result.data?.id;
       router.push(`/conversations/${targetId}`);
-      router.refresh();
     });
   }
 

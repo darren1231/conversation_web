@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { getSignedUrl } from "@/lib/storage";
 import { ContactForm } from "@/components/contacts/ContactForm";
 
@@ -10,9 +11,7 @@ export default async function EditContactPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   const { data: contact } = await supabase
     .from("contacts")

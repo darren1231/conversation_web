@@ -90,6 +90,7 @@ npm run dev
 - 首頁儀表板：`src/app/(app)/page.tsx`
 - Dark mode：`src/app/globals.css`（`@custom-variant dark`）、`src/components/layout/ThemeInit.tsx`、`ThemeToggle.tsx`
 - 成功/錯誤訊息：`src/components/ui/Toast.tsx`（所有新增／更新／刪除／上傳操作皆會呼叫 `toast.success` / `toast.error`）
+- 換頁反應速度：`src/lib/supabase/auth.ts`（用 `getClaims()` 取代每次都連線的 `getUser()`）、`src/app/(app)/loading.tsx`（換頁時立刻顯示的骨架）、`src/components/layout/NavLink.tsx`（連結的載入指示）、`next.config.ts`（`staleTimes` 客戶端快取）
 
 ## 6. 已知限制（第一版 MVP 範圍外）
 
@@ -100,9 +101,9 @@ npm run dev
 於本機（無真實 Supabase 專案，`.env.local` 使用 placeholder 值）執行：
 
 ```bash
-npm run lint        # ✅ 0 errors, 0 warnings
+npm run lint        # ✅ 0 errors（2 個既有的 react-hooks/exhaustive-deps warning）
 npx tsc --noEmit     # ✅ 0 errors
-npm run build        # ✅ 編譯成功，13 條路由全部產生
+npm run build        # ✅ 編譯成功，23 條路由全部產生
 ```
 
 所有頁面皆使用 `cookies()`/`auth.getUser()`，因此在 build 階段以動態渲染（ƒ）方式產生，不會在建置期間對 Supabase 發出請求；實際資料存取與 RLS 驗證需連接真實 Supabase 專案才能完整測試（登入、CRUD、上傳、搜尋、登出後無法存取等完整流程）。
