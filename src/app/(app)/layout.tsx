@@ -1,8 +1,6 @@
 import { Header } from "@/components/layout/Header";
 import { MobileNav } from "@/components/layout/MobileNav";
 
-export const dynamic = "force-dynamic";
-
 export default function AppLayout({
   children,
 }: {
